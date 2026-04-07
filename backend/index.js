@@ -5,6 +5,15 @@ if (!process.env.RAILWAY_ENVIRONMENT) {
   require('dotenv').config();
 }
 
+function stripWrappingQuotes(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  if ((raw.startsWith('"') && raw.endsWith('"')) || (raw.startsWith("'") && raw.endsWith("'"))) {
+    return raw.slice(1, -1).trim();
+  }
+  return raw;
+}
+
 const app = express();
 const port = process.env.PORT || 5050;
 
@@ -19,9 +28,9 @@ const localOrigins = [
   'http://127.0.0.1:3001',
 ];
 
-const envOrigins = (process.env.CORS_ORIGIN || '')
+const envOrigins = stripWrappingQuotes(process.env.CORS_ORIGIN)
   .split(',')
-  .map((o) => o.trim())
+  .map((o) => stripWrappingQuotes(o))
   .filter(Boolean);
 
 const allowedOrigins = new Set([...localOrigins, ...envOrigins]);

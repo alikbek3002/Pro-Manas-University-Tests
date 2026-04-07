@@ -3,7 +3,32 @@ const { createProxyMiddleware } = require('http-proxy-middleware');
 const path = require('path');
 
 const PORT = process.env.PORT || 3000;
-const API_TARGET = process.env.API_TARGET || 'http://localhost:5050';
+
+function stripWrappingQuotes(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  if ((raw.startsWith('"') && raw.endsWith('"')) || (raw.startsWith("'") && raw.endsWith("'"))) {
+    return raw.slice(1, -1).trim();
+  }
+  return raw;
+}
+
+function normalizeApiTarget(rawTarget) {
+  let target = stripWrappingQuotes(rawTarget);
+  if (!target) return '';
+
+  target = target.replace(/\/+$/, '');
+  if (target.endsWith('/api')) {
+    target = target.slice(0, -4);
+  }
+
+  return target;
+}
+
+const API_TARGET =
+  normalizeApiTarget(process.env.API_TARGET) ||
+  normalizeApiTarget(process.env.VITE_API_URL) ||
+  'http://localhost:5050';
 
 const app = express();
 const distPath = path.join(__dirname, 'dist');

@@ -1,7 +1,16 @@
 const { createClient } = require('@supabase/supabase-js');
 
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+function stripWrappingQuotes(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  if ((raw.startsWith('"') && raw.endsWith('"')) || (raw.startsWith("'") && raw.endsWith("'"))) {
+    return raw.slice(1, -1).trim();
+  }
+  return raw;
+}
+
+const supabaseUrl = stripWrappingQuotes(process.env.SUPABASE_URL);
+const supabaseKey = stripWrappingQuotes(process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY);
 
 if (!supabaseUrl || !supabaseKey) {
   throw new Error(

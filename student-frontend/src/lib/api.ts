@@ -1,6 +1,20 @@
 import { useAuthStore } from '../store/authStore';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
+function stripWrappingQuotes(value: unknown): string {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  if ((raw.startsWith('"') && raw.endsWith('"')) || (raw.startsWith("'") && raw.endsWith("'"))) {
+    return raw.slice(1, -1).trim();
+  }
+  return raw;
+}
+
+function normalizeApiBaseUrl(value: unknown): string {
+  const normalized = stripWrappingQuotes(value).replace(/\/+$/, '');
+  return normalized;
+}
+
+const API_BASE_URL = normalizeApiBaseUrl(import.meta.env.VITE_API_URL) || '/api';
 
 let onUnauthorized: ((failedToken: string) => void) | null = null;
 export function setOnUnauthorized(cb: (failedToken: string) => void) {
