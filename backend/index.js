@@ -83,6 +83,30 @@ app.use('/api/tests', require('./routes/testRoutes'));
 app.use('/api/demo-tests', require('./routes/demoTestRoutes'));
 app.use('/api/admin', require('./routes/adminRoutes'));
 
+app.get('/', (_req, res) => {
+  res.json({
+    service: 'promanas-backend',
+    status: 'ok',
+    docs: '/api/ping',
+  });
+});
+
+app.get('/health', (_req, res) => {
+  res.status(200).json({
+    status: 'ok',
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString(),
+  });
+});
+
+app.get('/api/health', (_req, res) => {
+  res.status(200).json({
+    status: 'ok',
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString(),
+  });
+});
+
 app.get('/api/ping', (_req, res) => res.json({ message: 'pong' }));
 
 app.listen(port, '0.0.0.0', async () => {
