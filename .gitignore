@@ -17,7 +17,7 @@ dist
 *.mov
 *.avi
 *.webm
-*.ts
+Материалы Видеоуроки/**/*.ts
 
 # Local-only artifacts
 coverage

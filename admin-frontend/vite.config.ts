@@ -1,0 +1,71 @@
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+import tailwindcss from '@tailwindcss/vite'
+import path from "path"
+
+export default defineConfig({
+  plugins: [react(), tailwindcss()],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return undefined
+
+          if (
+            id.includes('/react/') ||
+            id.includes('react-dom') ||
+            id.includes('react-router') ||
+            id.includes('scheduler')
+          ) {
+            return 'react-core'
+          }
+
+          if (
+            id.includes('react-markdown') ||
+            id.includes('remark-math') ||
+            id.includes('rehype-katex') ||
+            id.includes('/katex/')
+          ) {
+            return 'markdown'
+          }
+
+          if (
+            id.includes('@radix-ui/') ||
+            id.includes('react-hook-form') ||
+            id.includes('@hookform/resolvers') ||
+            id.includes('zod')
+          ) {
+            return 'forms'
+          }
+
+          if (id.includes('@supabase/')) {
+            return 'supabase'
+          }
+
+          if (id.includes('mathlive')) {
+            return 'mathlive'
+          }
+
+          if (id.includes('framer-motion') || id.includes('lucide-react') || id.includes('sonner')) {
+            return 'ui-vendor'
+          }
+        },
+      },
+    },
+  },
+  server: {
+    port: 5174,
+    strictPort: true,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:5050',
+        changeOrigin: true,
+      },
+    },
+  },
+  resolve: {
+    alias: {
+      "@": path.resolve(__dirname, "./src"),
+    },
+  },
+})
