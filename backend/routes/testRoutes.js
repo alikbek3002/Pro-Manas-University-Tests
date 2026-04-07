@@ -167,7 +167,7 @@ async function getProgramSubjects(programCode) {
 
   const subjectById = new Map((subjects || []).map((subject) => [subject.id, subject]));
 
-  return (links || [])
+  const normalizedSubjects = (links || [])
     .map((link) => {
       const subject = subjectById.get(link.subject_id);
       if (!subject) return null;
@@ -177,12 +177,42 @@ async function getProgramSubjects(programCode) {
       return {
         id: subject.id,
         code: canonicalCode,
+        originalCode: subject.code,
         title: subject.title,
         tableName,
         sortOrder: link.sort_order || 0,
       };
     })
     .filter(Boolean);
+
+  // Some programs contain both canonical subjects (e.g. "english")
+  // and technical aliases (e.g. "manas_hum_subj_6"). Deduplicate by canonical code
+  // and prefer the canonical subject row for stable titles/counts in UI.
+  const dedupedByCode = new Map();
+
+  for (const subject of normalizedSubjects) {
+    const existing = dedupedByCode.get(subject.code);
+    if (!existing) {
+      dedupedByCode.set(subject.code, subject);
+      continue;
+    }
+
+    const existingIsCanonical = existing.originalCode === existing.code;
+    const nextIsCanonical = subject.originalCode === subject.code;
+
+    if (!existingIsCanonical && nextIsCanonical) {
+      dedupedByCode.set(subject.code, subject);
+      continue;
+    }
+
+    if (existing.sortOrder > subject.sortOrder) {
+      dedupedByCode.set(subject.code, subject);
+    }
+  }
+
+  return Array.from(dedupedByCode.values())
+    .sort((left, right) => left.sortOrder - right.sortOrder || left.title.localeCompare(right.title, 'ru', { sensitivity: 'base' }))
+    .map(({ originalCode, ...subject }) => subject);
 }
 
 async function getFallbackProgramSubjects(program) {
