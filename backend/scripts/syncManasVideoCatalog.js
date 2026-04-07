@@ -98,11 +98,31 @@ function scanSubjectFiles(libraryRoot) {
       .map((child) => child.name)
       .sort(naturalCompare);
 
-    files.forEach((filename, index) => {
+    const fileSet = new Set(files.map((name) => normalizeDirectoryName(name)));
+
+    const selectedFiles = files.filter((filename) => {
+      const extension = path.extname(filename).slice(1).toLowerCase();
+      const basename = filename.replace(/\.[^.]+$/, '');
+
+      // Prefer MP4/M4V when both containers exist for the same lesson title.
+      // This avoids duplicate catalog rows and hides MKV rows that are not browser-playable.
+      if (extension === 'mkv') {
+        const hasMp4Twin = fileSet.has(normalizeDirectoryName(`${basename}.mp4`));
+        const hasM4vTwin = fileSet.has(normalizeDirectoryName(`${basename}.m4v`));
+        if (hasMp4Twin || hasM4vTwin) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+
+    selectedFiles.forEach((filename, index) => {
+      const extension = path.extname(filename).slice(1).toLowerCase();
+
       const absolutePath = path.join(subjectDir, filename);
       const relativePath = path.relative(libraryRoot, absolutePath);
       const stat = fs.statSync(absolutePath);
-      const extension = path.extname(filename).slice(1).toLowerCase();
       const publicUrl = buildPublicVideoUrl(relativePath);
       const canPlayAsMp4 = extension === 'mp4' || extension === 'm4v';
       const hlsUrl = extension === 'm3u8' ? publicUrl : null;
