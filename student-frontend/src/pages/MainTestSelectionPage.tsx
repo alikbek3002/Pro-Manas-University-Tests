@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
@@ -146,6 +146,16 @@ export default function MainTestSelectionPage() {
 
   const videoLessons = videosQuery.data?.lessons || [];
   const selectedVideoLesson = videoLessons.find((lesson) => lesson.id === selectedLessonId) || videoLessons[0] || null;
+
+  const handleVideoPlaybackIssue = useCallback(async () => {
+    if (!selectedSubjectCode || videosQuery.isFetching) return;
+
+    try {
+      await videosQuery.refetch();
+    } catch {
+      // Keep the current UI state; the query error banner will surface the backend response.
+    }
+  }, [selectedSubjectCode, videosQuery]);
 
   const subjectHistory = useMemo(() => {
     if (!selectedSubject) return [];
@@ -471,8 +481,19 @@ export default function MainTestSelectionPage() {
                   <div className="space-y-3">
                     <VideoLessonPlayer
                       lesson={selectedVideoLesson}
+                      isRefreshingSource={videosQuery.isFetching && !videosQuery.isLoading}
+                      onPlaybackIssue={handleVideoPlaybackIssue}
                       watermarkText={`@${student?.username || 'student'} · ${new Date().toLocaleDateString('ru-RU')}`}
                     />
+                    {videosQuery.isFetching && !videosQuery.isLoading ? (
+                      <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">
+                        {localizeUi(
+                          student?.language,
+                          'Обновляем ссылку на видео, чтобы урок загрузился без зависания.',
+                          'Сабак токтобой ачылышы үчүн видео шилтемесин жаңыртып жатабыз.',
+                        )}
+                      </div>
+                    ) : null}
                     {selectedVideoLesson && (
                       <div className="rounded-2xl border border-stone-200 bg-stone-50 p-4">
                         <div className="flex items-center gap-2 text-sm font-semibold text-stone-900">

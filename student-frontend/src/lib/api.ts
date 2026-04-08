@@ -16,6 +16,25 @@ function normalizeApiBaseUrl(value: unknown): string {
 
 const API_BASE_URL = normalizeApiBaseUrl(import.meta.env.VITE_API_URL) || '/api';
 
+export function resolveApiMediaUrl(value: string | null | undefined): string | null {
+  const raw = stripWrappingQuotes(value);
+  if (!raw) return null;
+
+  if (/^https?:\/\//i.test(raw)) {
+    return raw;
+  }
+
+  if (!/^https?:\/\//i.test(API_BASE_URL)) {
+    return raw;
+  }
+
+  try {
+    return new URL(raw, `${API_BASE_URL}/`).toString();
+  } catch {
+    return raw;
+  }
+}
+
 let onUnauthorized: ((failedToken: string) => void) | null = null;
 export function setOnUnauthorized(cb: (failedToken: string) => void) {
   onUnauthorized = cb;

@@ -27,9 +27,7 @@ const QUESTIONS_PER_TEST = 20;
 const TOKEN_REFRESH_THRESHOLD_SECONDS = 300;
 const VIDEO_GRANT_TTL_SECONDS = Math.max(60, Number(process.env.VIDEO_GRANT_TTL_SECONDS) || 1800);
 const VIDEO_SEGMENT_GRANT_TTL_SECONDS = Math.max(30, Number(process.env.VIDEO_SEGMENT_GRANT_TTL_SECONDS) || 300);
-const VIDEO_GRANT_STORE_MAX_SIZE = Math.max(1_000, Number(process.env.VIDEO_GRANT_STORE_MAX_SIZE) || 50_000);
-const VIDEO_GRANT_PRUNE_INTERVAL_MS = Math.max(5_000, Number(process.env.VIDEO_GRANT_PRUNE_INTERVAL_MS) || 30_000);
-const videoGrantStore = new Map();
+const VIDEO_GRANT_BIND_IP = String(process.env.VIDEO_GRANT_BIND_IP || 'false').trim().toLowerCase() === 'true';
 
 function getDefaultSubjectCodesForProgram(program) {
   if (!program) return [];
@@ -138,58 +136,75 @@ function normalizePositiveInt(value, fallback) {
   return fallback;
 }
 
-function createClientFingerprint(req) {
-  const userAgent = String(req.get('user-agent') || '');
-  return {
-    ip: String(req.ip || req.socket?.remoteAddress || ''),
-    uaHash: crypto.createHash('sha256').update(userAgent).digest('hex').slice(0, 24),
-  };
+function getVideoGrantSecret() {
+  const secret = String(process.env.JWT_SECRET || '').trim();
+  if (!secret) {
+    throw new Error('Missing JWT_SECRET for video grants');
+  }
+  return secret;
 }
 
-function pruneExpiredVideoGrants(maxEntries = VIDEO_GRANT_STORE_MAX_SIZE) {
-  const now = Date.now();
-  for (const [grantId, grant] of videoGrantStore.entries()) {
-    if (grant.expiresAt <= now) {
-      videoGrantStore.delete(grantId);
-    }
+function createClientFingerprint(req) {
+  const userAgent = String(req.get('user-agent') || '');
+  const fingerprint = {
+    uaHash: crypto.createHash('sha256').update(userAgent).digest('hex').slice(0, 24),
+  };
+
+  if (VIDEO_GRANT_BIND_IP) {
+    fingerprint.ip = String(req.ip || req.socket?.remoteAddress || '');
   }
 
-  if (videoGrantStore.size <= maxEntries) return;
-  const grants = Array.from(videoGrantStore.entries())
-    .sort((a, b) => a[1].expiresAt - b[1].expiresAt);
+  return fingerprint;
+}
 
-  const overflow = videoGrantStore.size - maxEntries;
-  for (let index = 0; index < overflow; index += 1) {
-    const entry = grants[index];
-    if (!entry) break;
-    videoGrantStore.delete(entry[0]);
+function signVideoGrant(payload) {
+  const encodedPayload = Buffer.from(JSON.stringify(payload), 'utf8').toString('base64url');
+  const signature = crypto
+    .createHmac('sha256', getVideoGrantSecret())
+    .update(encodedPayload)
+    .digest('base64url');
+  return `${encodedPayload}.${signature}`;
+}
+
+function decodeVideoGrant(token) {
+  if (!token || typeof token !== 'string') return null;
+
+  const [encodedPayload, signature] = token.split('.');
+  if (!encodedPayload || !signature) return null;
+
+  const expectedSignature = crypto
+    .createHmac('sha256', getVideoGrantSecret())
+    .update(encodedPayload)
+    .digest('base64url');
+
+  if (signature !== expectedSignature) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(Buffer.from(encodedPayload, 'base64url').toString('utf8'));
+  } catch {
+    return null;
   }
 }
 
 function createVideoGrant({ req, lessonId, sourceUrl, ttlSeconds }) {
   if (!sourceUrl || !req) return null;
-  pruneExpiredVideoGrants();
-
-  const grantId = crypto.randomBytes(18).toString('base64url');
   const safeTtlSeconds = normalizePositiveInt(ttlSeconds, VIDEO_GRANT_TTL_SECONDS);
-
-  videoGrantStore.set(grantId, {
-    lessonId,
-    sourceUrl,
-    ttlSeconds: safeTtlSeconds,
-    expiresAt: Date.now() + (safeTtlSeconds * 1000),
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  return signVideoGrant({
+    lessonId: String(lessonId || ''),
+    sourceUrl: String(sourceUrl || ''),
+    exp: nowSeconds + safeTtlSeconds,
     fingerprint: createClientFingerprint(req),
   });
-
-  return grantId;
 }
 
-function resolveVideoGrant(grantId, req) {
-  const grant = videoGrantStore.get(grantId);
+function resolveVideoGrant(grantToken, req) {
+  const grant = decodeVideoGrant(grantToken);
   if (!grant) return null;
 
-  if (grant.expiresAt <= Date.now()) {
-    videoGrantStore.delete(grantId);
+  if (!grant.exp || Number(grant.exp) <= Math.floor(Date.now() / 1000)) {
     return null;
   }
 
@@ -208,9 +223,6 @@ function resolveVideoGrant(grantId, req) {
   ) {
     return null;
   }
-
-  const safeTtlSeconds = normalizePositiveInt(grant.ttlSeconds, VIDEO_GRANT_TTL_SECONDS);
-  grant.expiresAt = Date.now() + (safeTtlSeconds * 1000);
 
   return grant;
 }
@@ -388,10 +400,6 @@ function toSecureVideoLesson(req, lesson) {
   secureLesson.isPlayable = Boolean(secureLesson.playbackUrl || secureLesson.hlsUrl || secureLesson.mp4Url);
   return secureLesson;
 }
-
-setInterval(() => {
-  pruneExpiredVideoGrants();
-}, VIDEO_GRANT_PRUNE_INTERVAL_MS).unref();
 
 async function getPrimaryProgram(studentId) {
   const { data, error } = await supabase

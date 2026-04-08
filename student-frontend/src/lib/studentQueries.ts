@@ -30,8 +30,9 @@ export function subjectVideosQueryOptions(studentId: string, subjectCode: string
   return {
     queryKey: studentQueryKeys.videos(studentId, subjectCode),
     queryFn: ({ signal }: { signal: AbortSignal }) => fetchSubjectVideos(subjectCode, signal),
-    staleTime: 5 * 60_000,
-    gcTime: 20 * 60_000,
+    staleTime: 30_000,
+    gcTime: 10 * 60_000,
+    refetchOnMount: 'always' as const,
   };
 }
 

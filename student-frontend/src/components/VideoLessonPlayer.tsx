@@ -10,11 +10,13 @@ import {
   Volume2,
   VolumeX,
 } from 'lucide-react';
-import type { VideoLesson } from '../lib/api';
+import { resolveApiMediaUrl, type VideoLesson } from '../lib/api';
 
 interface VideoLessonPlayerProps {
   lesson: VideoLesson | null;
   watermarkText?: string;
+  isRefreshingSource?: boolean;
+  onPlaybackIssue?: (reason: string) => void | Promise<void>;
 }
 
 interface FullscreenCapableElement extends HTMLElement {
@@ -29,7 +31,12 @@ interface FullscreenCapableDocument extends Document {
 function getPlayableSource(lesson: VideoLesson | null) {
   if (!lesson) return null;
   // Prefer MP4 for the quickest startup time, then fallback to HLS.
-  return lesson.mp4Url || lesson.hlsUrl || lesson.playbackUrl || lesson.previewUrl;
+  return (
+    resolveApiMediaUrl(lesson.mp4Url)
+    || resolveApiMediaUrl(lesson.hlsUrl)
+    || resolveApiMediaUrl(lesson.playbackUrl)
+    || resolveApiMediaUrl(lesson.previewUrl)
+  );
 }
 
 function formatTime(totalSeconds: number) {
@@ -45,13 +52,22 @@ function formatTime(totalSeconds: number) {
   return `${mins}:${String(secs).padStart(2, '0')}`;
 }
 
-export default function VideoLessonPlayer({ lesson, watermarkText }: VideoLessonPlayerProps) {
+export default function VideoLessonPlayer({
+  lesson,
+  watermarkText,
+  isRefreshingSource = false,
+  onPlaybackIssue,
+}: VideoLessonPlayerProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const controlsHideTimerRef = useRef<number | null>(null);
+  const startupTimeoutRef = useRef<number | null>(null);
+  const recoveryRequestedRef = useRef(false);
 
   const playableSource = getPlayableSource(lesson);
-  const isHls = Boolean(playableSource && lesson?.hlsUrl && playableSource === lesson.hlsUrl);
+  const resolvedHlsSource = resolveApiMediaUrl(lesson?.hlsUrl);
+  const resolvedPosterUrl = resolveApiMediaUrl(lesson?.posterUrl);
+  const isHls = Boolean(playableSource && resolvedHlsSource && playableSource === resolvedHlsSource);
 
   const [isPlaying, setIsPlaying] = useState(false);
   const [isBuffering, setIsBuffering] = useState(false);
@@ -79,6 +95,21 @@ export default function VideoLessonPlayer({ lesson, watermarkText }: VideoLesson
       controlsHideTimerRef.current = null;
     }
   }, []);
+
+  const clearStartupTimeout = useCallback(() => {
+    if (startupTimeoutRef.current) {
+      window.clearTimeout(startupTimeoutRef.current);
+      startupTimeoutRef.current = null;
+    }
+  }, []);
+
+  const requestPlaybackRecovery = useCallback((reason: string) => {
+    if (recoveryRequestedRef.current) return;
+    recoveryRequestedRef.current = true;
+    setShowControls(true);
+    setIsBuffering(false);
+    void onPlaybackIssue?.(reason);
+  }, [onPlaybackIssue]);
 
   const scheduleHideControls = useCallback(() => {
     clearHideControlsTimer();
@@ -175,11 +206,19 @@ export default function VideoLessonPlayer({ lesson, watermarkText }: VideoLesson
     const video = videoRef.current;
     if (!video || !playableSource) return;
 
+    recoveryRequestedRef.current = false;
     setCurrentTime(0);
     setDuration(0);
     setIsPlaying(false);
     setIsBuffering(true);
     setShowControls(true);
+
+    clearStartupTimeout();
+    startupTimeoutRef.current = window.setTimeout(() => {
+      const media = videoRef.current;
+      if (!media || media.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) return;
+      requestPlaybackRecovery('startup-timeout');
+    }, 10_000);
 
     if (isHls && Hls.isSupported()) {
       const hls = new Hls({
@@ -193,20 +232,28 @@ export default function VideoLessonPlayer({ lesson, watermarkText }: VideoLesson
         backBufferLength: 30,
       });
 
+      hls.on(Hls.Events.ERROR, (_event, data) => {
+        if (data?.fatal) {
+          requestPlaybackRecovery(`hls-${data.type || 'fatal'}`);
+        }
+      });
+
       hls.loadSource(playableSource);
       hls.attachMedia(video);
 
       return () => {
+        clearStartupTimeout();
         hls.destroy();
       };
     }
 
     video.src = playableSource;
     return () => {
+      clearStartupTimeout();
       video.removeAttribute('src');
       video.load();
     };
-  }, [isHls, playableSource]);
+  }, [clearStartupTimeout, isHls, playableSource, requestPlaybackRecovery]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -215,6 +262,7 @@ export default function VideoLessonPlayer({ lesson, watermarkText }: VideoLesson
     const handleLoadedMetadata = () => {
       setDuration(Number.isFinite(video.duration) ? video.duration : 0);
       setIsBuffering(false);
+      clearStartupTimeout();
     };
     const handleDurationChange = () => {
       setDuration(Number.isFinite(video.duration) ? video.duration : 0);
@@ -237,11 +285,15 @@ export default function VideoLessonPlayer({ lesson, watermarkText }: VideoLesson
     };
     const handlePlaying = () => {
       setIsBuffering(false);
+      clearStartupTimeout();
     };
     const handleEnded = () => {
       setIsPlaying(false);
       setShowControls(true);
       clearHideControlsTimer();
+    };
+    const handleError = () => {
+      requestPlaybackRecovery('media-error');
     };
 
     video.addEventListener('loadedmetadata', handleLoadedMetadata);
@@ -252,6 +304,7 @@ export default function VideoLessonPlayer({ lesson, watermarkText }: VideoLesson
     video.addEventListener('waiting', handleWaiting);
     video.addEventListener('playing', handlePlaying);
     video.addEventListener('ended', handleEnded);
+    video.addEventListener('error', handleError);
 
     return () => {
       video.removeEventListener('loadedmetadata', handleLoadedMetadata);
@@ -262,8 +315,9 @@ export default function VideoLessonPlayer({ lesson, watermarkText }: VideoLesson
       video.removeEventListener('waiting', handleWaiting);
       video.removeEventListener('playing', handlePlaying);
       video.removeEventListener('ended', handleEnded);
+      video.removeEventListener('error', handleError);
     };
-  }, [clearHideControlsTimer, playableSource, scheduleHideControls]);
+  }, [clearHideControlsTimer, clearStartupTimeout, playableSource, requestPlaybackRecovery, scheduleHideControls]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -290,7 +344,10 @@ export default function VideoLessonPlayer({ lesson, watermarkText }: VideoLesson
     return clearHideControlsTimer;
   }, [clearHideControlsTimer, isPlaying, scheduleHideControls]);
 
-  useEffect(() => () => clearHideControlsTimer(), [clearHideControlsTimer]);
+  useEffect(() => () => {
+    clearHideControlsTimer();
+    clearStartupTimeout();
+  }, [clearHideControlsTimer, clearStartupTimeout]);
 
   if (!lesson) {
     return (
@@ -334,7 +391,8 @@ export default function VideoLessonPlayer({ lesson, watermarkText }: VideoLesson
             playsInline
             disablePictureInPicture
             disableRemotePlayback
-            poster={lesson.posterUrl || undefined}
+            controlsList="nodownload noplaybackrate noremoteplayback"
+            poster={resolvedPosterUrl || undefined}
             onClick={() => {
               void togglePlay();
             }}
@@ -373,7 +431,7 @@ export default function VideoLessonPlayer({ lesson, watermarkText }: VideoLesson
       </AnimatePresence>
 
       <AnimatePresence>
-        {isBuffering && (
+        {(isBuffering || isRefreshingSource) && (
           <motion.div
             className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center"
             initial={{ opacity: 0 }}
@@ -383,6 +441,19 @@ export default function VideoLessonPlayer({ lesson, watermarkText }: VideoLesson
             <div className="rounded-full border border-white/25 bg-black/45 p-3 backdrop-blur-md">
               <Loader2 className="h-6 w-6 animate-spin text-white" />
             </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {isRefreshingSource && (
+          <motion.div
+            className="pointer-events-none absolute left-1/2 top-4 z-30 -translate-x-1/2 rounded-full border border-emerald-300/30 bg-emerald-500/20 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur-md"
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+          >
+            Обновляем защищенную ссылку...
           </motion.div>
         )}
       </AnimatePresence>
