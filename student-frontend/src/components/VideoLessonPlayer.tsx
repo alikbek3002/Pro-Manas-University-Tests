@@ -28,15 +28,17 @@ interface FullscreenCapableDocument extends Document {
   webkitFullscreenElement?: Element;
 }
 
-function getPlayableSource(lesson: VideoLesson | null) {
-  if (!lesson) return null;
-  // Prefer MP4 for the quickest startup time, then fallback to HLS.
-  return (
-    resolveApiMediaUrl(lesson.mp4Url)
-    || resolveApiMediaUrl(lesson.hlsUrl)
-    || resolveApiMediaUrl(lesson.playbackUrl)
-    || resolveApiMediaUrl(lesson.previewUrl)
-  );
+function getPlayableSources(lesson: VideoLesson | null): string[] {
+  if (!lesson) return [];
+
+  const candidates = [
+    resolveApiMediaUrl(lesson.mp4Url),
+    resolveApiMediaUrl(lesson.hlsUrl),
+    resolveApiMediaUrl(lesson.playbackUrl),
+    resolveApiMediaUrl(lesson.previewUrl),
+  ].filter((item): item is string => Boolean(item));
+
+  return candidates.filter((source, index) => candidates.indexOf(source) === index);
 }
 
 function formatTime(totalSeconds: number) {
@@ -63,7 +65,10 @@ export default function VideoLessonPlayer({
   const controlsHideTimerRef = useRef<number | null>(null);
   const recoveryRequestedRef = useRef(false);
 
-  const playableSource = getPlayableSource(lesson);
+  const playableSources = useMemo(() => getPlayableSources(lesson), [lesson]);
+  const sourcesSignature = useMemo(() => playableSources.join('|'), [playableSources]);
+  const [sourceAttemptIndex, setSourceAttemptIndex] = useState(0);
+  const playableSource = playableSources[sourceAttemptIndex] || null;
   const resolvedHlsSource = resolveApiMediaUrl(lesson?.hlsUrl);
   const resolvedPosterUrl = resolveApiMediaUrl(lesson?.posterUrl);
   const isHls = Boolean(playableSource && resolvedHlsSource && playableSource === resolvedHlsSource);
@@ -96,12 +101,23 @@ export default function VideoLessonPlayer({
   }, []);
 
   const requestPlaybackRecovery = useCallback((reason: string) => {
+    if (sourceAttemptIndex + 1 < playableSources.length) {
+      setSourceAttemptIndex((prev) => Math.min(prev + 1, playableSources.length - 1));
+      setShowControls(true);
+      setIsBuffering(true);
+      return;
+    }
+
     if (recoveryRequestedRef.current) return;
     recoveryRequestedRef.current = true;
     setShowControls(true);
     setIsBuffering(false);
     void onPlaybackIssue?.(reason);
-  }, [onPlaybackIssue]);
+  }, [onPlaybackIssue, playableSources.length, sourceAttemptIndex]);
+
+  useEffect(() => {
+    setSourceAttemptIndex(0);
+  }, [lesson?.id, sourcesSignature]);
 
   const scheduleHideControls = useCallback(() => {
     clearHideControlsTimer();

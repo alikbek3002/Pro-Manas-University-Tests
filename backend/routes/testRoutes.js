@@ -385,6 +385,9 @@ async function toSecureVideoLesson(req, lesson) {
     }
   }
 
+  let mp4ProxyUrl = null;
+  let genericProxyFallbackUrl = null;
+
   if (hlsSourceUrl) {
     const hlsGrantId = createVideoGrant({
       req,
@@ -397,9 +400,7 @@ async function toSecureVideoLesson(req, lesson) {
     }
   }
 
-  if (presignedPlaybackUrl) {
-    secureLesson.mp4Url = presignedPlaybackUrl;
-  } else if (mp4SourceUrl) {
+  if (mp4SourceUrl) {
     const mp4GrantId = createVideoGrant({
       req,
       lessonId: lesson.id,
@@ -407,11 +408,17 @@ async function toSecureVideoLesson(req, lesson) {
       ttlSeconds: VIDEO_GRANT_TTL_SECONDS,
     });
     if (mp4GrantId) {
-      secureLesson.mp4Url = buildVideoProxyUrl(mp4GrantId);
+      mp4ProxyUrl = buildVideoProxyUrl(mp4GrantId);
     }
   }
 
-  if (!secureLesson.hlsUrl && !secureLesson.mp4Url && fallbackSourceUrl) {
+  if (presignedPlaybackUrl) {
+    secureLesson.mp4Url = presignedPlaybackUrl;
+  } else if (mp4ProxyUrl) {
+    secureLesson.mp4Url = mp4ProxyUrl;
+  }
+
+  if (!genericProxyFallbackUrl && fallbackSourceUrl) {
     const fallbackGrantId = createVideoGrant({
       req,
       lessonId: lesson.id,
@@ -419,10 +426,17 @@ async function toSecureVideoLesson(req, lesson) {
       ttlSeconds: VIDEO_GRANT_TTL_SECONDS,
     });
     if (fallbackGrantId) {
-      secureLesson.playbackUrl = buildVideoProxyUrl(fallbackGrantId);
+      genericProxyFallbackUrl = buildVideoProxyUrl(fallbackGrantId);
     }
+  }
+
+  if (presignedPlaybackUrl) {
+    // Keep proxy URL as explicit fallback for clients that fail to play direct presigned URL.
+    secureLesson.playbackUrl = mp4ProxyUrl || genericProxyFallbackUrl || presignedPlaybackUrl;
+  } else if (!secureLesson.hlsUrl && !secureLesson.mp4Url) {
+    secureLesson.playbackUrl = genericProxyFallbackUrl;
   } else {
-    secureLesson.playbackUrl = secureLesson.mp4Url || secureLesson.hlsUrl;
+    secureLesson.playbackUrl = secureLesson.mp4Url || secureLesson.hlsUrl || genericProxyFallbackUrl;
   }
 
   secureLesson.isPlayable = Boolean(secureLesson.playbackUrl || secureLesson.hlsUrl || secureLesson.mp4Url);
