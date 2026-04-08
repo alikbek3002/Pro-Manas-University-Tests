@@ -775,6 +775,7 @@ router.post('/login', async (req, res) => {
 });
 
 router.get('/videos/proxy/:grantId', async (req, res) => {
+  let abortController;
   try {
     const grant = resolveVideoGrant(req.params.grantId, req);
     if (!grant?.sourceUrl) {
@@ -796,14 +797,23 @@ router.get('/videos/proxy/:grantId', async (req, res) => {
       upstreamSourceUrl = resolvedPathUrl;
     }
 
+    abortController = new AbortController();
+
+    // Abort upstream fetch when client disconnects (e.g. on seek / tab close)
+    res.on('close', () => {
+      abortController.abort();
+    });
+
     const upstreamResponse = await fetch(upstreamSourceUrl, {
       method: 'GET',
       headers: buildUpstreamVideoHeaders(req),
       redirect: 'follow',
+      signal: abortController.signal,
     });
 
     if (!upstreamResponse.ok && upstreamResponse.status !== 206) {
       const status = upstreamResponse.status >= 400 && upstreamResponse.status < 500 ? 404 : 502;
+      console.error(`Video proxy upstream error: ${upstreamResponse.status} for ${upstreamSourceUrl}`);
       return res.status(status).json({ error: 'Failed to stream video' });
     }
 
@@ -841,15 +851,35 @@ router.get('/videos/proxy/:grantId', async (req, res) => {
       }
     }
 
+    // Always advertise byte-range support so browser can seek
+    if (!upstreamResponse.headers.get('accept-ranges')) {
+      res.setHeader('Accept-Ranges', 'bytes');
+    }
+
     res.status(upstreamResponse.status);
     if (!upstreamResponse.body) {
       return res.end();
     }
 
-    Readable.fromWeb(upstreamResponse.body).pipe(res);
+    const nodeStream = Readable.fromWeb(upstreamResponse.body);
+
+    nodeStream.on('error', (streamError) => {
+      if (streamError?.name === 'AbortError') return;
+      if (!res.headersSent) {
+        res.status(502).json({ error: 'Stream interrupted' });
+      } else {
+        res.destroy();
+      }
+    });
+
+    nodeStream.pipe(res);
   } catch (error) {
+    if (error?.name === 'AbortError') return;
     console.error('Proxy student video error:', error);
-    return res.status(500).json({ error: 'Failed to proxy video stream' });
+    if (!res.headersSent) {
+      return res.status(500).json({ error: 'Failed to proxy video stream' });
+    }
+    res.destroy();
   }
 });
 
