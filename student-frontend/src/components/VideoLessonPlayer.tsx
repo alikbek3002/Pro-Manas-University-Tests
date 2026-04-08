@@ -56,6 +56,24 @@ function formatTime(totalSeconds: number) {
   return `${mins}:${String(secs).padStart(2, '0')}`;
 }
 
+function getBufferedEnd(video: HTMLVideoElement) {
+  const duration = Number.isFinite(video.duration) ? video.duration : 0;
+  if (duration <= 0 || video.buffered.length === 0) {
+    return 0;
+  }
+
+  const current = Number.isFinite(video.currentTime) ? video.currentTime : 0;
+  for (let index = 0; index < video.buffered.length; index += 1) {
+    const start = video.buffered.start(index);
+    const end = video.buffered.end(index);
+    if (current >= start && current <= end) {
+      return end;
+    }
+  }
+
+  return video.buffered.end(video.buffered.length - 1);
+}
+
 export default function VideoLessonPlayer({
   lesson,
   autoplayLessonId = null,
@@ -84,15 +102,17 @@ export default function VideoLessonPlayer({
   const [showControls, setShowControls] = useState(true);
   const [currentTime, setCurrentTime] = useState(0);
   const [seekTargetTime, setSeekTargetTime] = useState<number | null>(null);
+  const [bufferedPercent, setBufferedPercent] = useState(0);
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(0.85);
   const [isMuted, setIsMuted] = useState(false);
   const [playbackRate, setPlaybackRate] = useState(1);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const displayedTime = seekTargetTime ?? currentTime;
 
   const progressPercent = useMemo(
-    () => (duration > 0 ? Math.min(100, Math.max(0, (currentTime / duration) * 100)) : 0),
-    [currentTime, duration],
+    () => (duration > 0 ? Math.min(100, Math.max(0, (displayedTime / duration) * 100)) : 0),
+    [displayedTime, duration],
   );
 
   const volumePercent = useMemo(
@@ -200,22 +220,72 @@ export default function VideoLessonPlayer({
     scheduleHideControls();
   }, [scheduleHideControls]);
 
+  const syncBufferedPercent = useCallback((video: HTMLVideoElement) => {
+    const nextDuration = Number.isFinite(video.duration) ? video.duration : 0;
+    const bufferedEnd = getBufferedEnd(video);
+    setBufferedPercent(nextDuration > 0 ? Math.min(100, Math.max(0, (bufferedEnd / nextDuration) * 100)) : 0);
+  }, []);
+
+  const syncPausedUi = useCallback(() => {
+    clearPendingAutoplay();
+    setSeekTargetTime(null);
+    setIsPlaying(false);
+    setIsBuffering(false);
+    setShowControls(true);
+    clearHideControlsTimer();
+  }, [clearHideControlsTimer, clearPendingAutoplay]);
+
+  const pausePlayback = useCallback((video: HTMLVideoElement) => {
+    syncPausedUi();
+    video.pause();
+  }, [syncPausedUi]);
+
+  const startPlayback = useCallback(async (video: HTMLVideoElement) => {
+    if (video.ended) {
+      video.currentTime = 0;
+      setCurrentTime(0);
+    }
+
+    setShowControls(true);
+    setIsBuffering(true);
+
+    try {
+      await video.play();
+    } catch {
+      setIsBuffering(false);
+      setIsPlaying(false);
+    }
+  }, []);
+
   const togglePlay = useCallback(async () => {
     const video = videoRef.current;
     if (!video) return;
 
-    try {
-      if (video.paused || video.ended) {
-        await video.play();
-      } else {
-        clearPendingAutoplay();
-        setIsBuffering(false);
-        video.pause();
-      }
-    } catch {
-      // Browsers may block autoplay without interaction.
+    if (video.paused || video.ended) {
+      await startPlayback(video);
+      return;
     }
-  }, [clearPendingAutoplay]);
+
+    pausePlayback(video);
+  }, [pausePlayback, startPlayback]);
+
+  const seekToTime = useCallback((nextTime: number) => {
+    const video = videoRef.current;
+    const safeTime = Math.max(0, Math.min(Number.isFinite(duration) ? duration : 0, nextTime));
+
+    setSeekTargetTime(safeTime);
+    setCurrentTime(safeTime);
+    setIsBuffering(true);
+
+    if (!video) return;
+
+    if ('fastSeek' in video && typeof video.fastSeek === 'function') {
+      video.fastSeek(safeTime);
+      return;
+    }
+
+    video.currentTime = safeTime;
+  }, [duration]);
 
   const toggleMute = useCallback(() => {
     setIsMuted((prev) => {
@@ -294,6 +364,7 @@ export default function VideoLessonPlayer({
     video.load();
     setCurrentTime(0);
     setSeekTargetTime(null);
+    setBufferedPercent(0);
     setDuration(0);
     setIsPlaying(false);
     setIsBuffering(true);
@@ -364,12 +435,15 @@ export default function VideoLessonPlayer({
 
     const handleLoadedMetadata = () => {
       setDuration(Number.isFinite(video.duration) ? video.duration : 0);
+      syncBufferedPercent(video);
       setIsBuffering(false);
     };
     const handleDurationChange = () => {
       setDuration(Number.isFinite(video.duration) ? video.duration : 0);
+      syncBufferedPercent(video);
     };
     const handleTimeUpdate = () => {
+      syncBufferedPercent(video);
       if (seekTargetTime !== null || video.seeking) {
         return;
       }
@@ -382,30 +456,32 @@ export default function VideoLessonPlayer({
       scheduleHideControls();
     };
     const handlePause = () => {
-      clearPendingAutoplay();
-      setIsPlaying(false);
-      setIsBuffering(false);
-      setShowControls(true);
-      clearHideControlsTimer();
+      syncPausedUi();
     };
     const handleWaiting = () => {
       if (!video.paused) setIsBuffering(true);
     };
     const handleSeeking = () => {
+      syncBufferedPercent(video);
       setIsBuffering(true);
     };
     const handleSeeked = () => {
       setSeekTargetTime(null);
       setCurrentTime(Number.isFinite(video.currentTime) ? video.currentTime : 0);
+      syncBufferedPercent(video);
       setIsBuffering(false);
     };
     const handlePlaying = () => {
+      syncBufferedPercent(video);
       setIsBuffering(false);
     };
     const handleEnded = () => {
       setIsPlaying(false);
       setShowControls(true);
       clearHideControlsTimer();
+    };
+    const handleProgress = () => {
+      syncBufferedPercent(video);
     };
     const handleError = () => {
       requestPlaybackRecovery('media-error');
@@ -414,6 +490,7 @@ export default function VideoLessonPlayer({
     video.addEventListener('loadedmetadata', handleLoadedMetadata);
     video.addEventListener('durationchange', handleDurationChange);
     video.addEventListener('timeupdate', handleTimeUpdate);
+    video.addEventListener('progress', handleProgress);
     video.addEventListener('play', handlePlay);
     video.addEventListener('pause', handlePause);
     video.addEventListener('waiting', handleWaiting);
@@ -427,6 +504,7 @@ export default function VideoLessonPlayer({
       video.removeEventListener('loadedmetadata', handleLoadedMetadata);
       video.removeEventListener('durationchange', handleDurationChange);
       video.removeEventListener('timeupdate', handleTimeUpdate);
+      video.removeEventListener('progress', handleProgress);
       video.removeEventListener('play', handlePlay);
       video.removeEventListener('pause', handlePause);
       video.removeEventListener('waiting', handleWaiting);
@@ -436,7 +514,7 @@ export default function VideoLessonPlayer({
       video.removeEventListener('ended', handleEnded);
       video.removeEventListener('error', handleError);
     };
-  }, [clearHideControlsTimer, clearPendingAutoplay, playableSource, requestPlaybackRecovery, scheduleHideControls, seekTargetTime]);
+  }, [clearHideControlsTimer, playableSource, requestPlaybackRecovery, scheduleHideControls, seekTargetTime, syncBufferedPercent, syncPausedUi]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -511,7 +589,8 @@ export default function VideoLessonPlayer({
             disableRemotePlayback
             controlsList="nodownload noplaybackrate noremoteplayback"
             poster={resolvedPosterUrl || undefined}
-            onClick={() => {
+            onClick={(event) => {
+              event.stopPropagation();
               void togglePlay();
             }}
             onContextMenu={(event) => event.preventDefault()}
@@ -533,7 +612,8 @@ export default function VideoLessonPlayer({
         {(showControls || !isPlaying) && (
           <motion.button
             type="button"
-            onClick={() => {
+            onClick={(event) => {
+              event.stopPropagation();
               void togglePlay();
             }}
             className="absolute left-1/2 top-1/2 z-20 flex h-16 w-16 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-white/25 bg-black/45 text-white backdrop-blur-md transition-transform hover:scale-105"
@@ -590,21 +670,30 @@ export default function VideoLessonPlayer({
                 type="range"
                 min={0}
                 max={duration || 0}
-                value={seekTargetTime ?? currentTime}
+                value={displayedTime}
                 step={0.1}
-                onChange={(event) => {
-                  const nextTime = Number(event.target.value);
-                  setSeekTargetTime(nextTime);
-                  if (videoRef.current) {
-                    videoRef.current.currentTime = nextTime;
-                  }
+                onInput={(event) => {
+                  seekToTime(Number(event.currentTarget.value));
                   revealControls();
                 }}
-                onMouseDown={revealControls}
-                onTouchStart={revealControls}
-                className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-white/20"
+                onChange={(event) => {
+                  seekToTime(Number(event.target.value));
+                  revealControls();
+                }}
+                onMouseDown={(event) => {
+                  event.stopPropagation();
+                  revealControls();
+                }}
+                onTouchStart={(event) => {
+                  event.stopPropagation();
+                  revealControls();
+                }}
+                onClick={(event) => {
+                  event.stopPropagation();
+                }}
+                className="video-slider h-1.5 w-full cursor-pointer appearance-none rounded-full bg-white/20"
                 style={{
-                  background: `linear-gradient(90deg, rgba(34,197,94,0.95) ${progressPercent}%, rgba(255,255,255,0.22) ${progressPercent}%)`,
+                  background: `linear-gradient(90deg, rgba(34,197,94,0.95) 0%, rgba(34,197,94,0.95) ${progressPercent}%, rgba(255,255,255,0.4) ${progressPercent}%, rgba(255,255,255,0.4) ${Math.max(progressPercent, bufferedPercent)}%, rgba(255,255,255,0.22) ${Math.max(progressPercent, bufferedPercent)}%, rgba(255,255,255,0.22) 100%)`,
                 }}
                 aria-label="Video progress"
               />
@@ -613,7 +702,8 @@ export default function VideoLessonPlayer({
                 <div className="flex items-center gap-2 sm:gap-3">
                   <button
                     type="button"
-                    onClick={() => {
+                    onClick={(event) => {
+                      event.stopPropagation();
                       void togglePlay();
                     }}
                     className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/25 bg-white/10 transition-colors hover:bg-white/20"
@@ -624,7 +714,10 @@ export default function VideoLessonPlayer({
 
                   <button
                     type="button"
-                    onClick={toggleMute}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      toggleMute();
+                    }}
                     className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/25 bg-white/10 transition-colors hover:bg-white/20"
                     aria-label={isMuted ? 'Unmute video' : 'Mute video'}
                   >
@@ -648,7 +741,10 @@ export default function VideoLessonPlayer({
                       }
                       revealControls();
                     }}
-                    className="hidden h-1.5 w-24 cursor-pointer appearance-none rounded-full bg-white/20 sm:block"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                    }}
+                    className="video-slider hidden h-1.5 w-24 cursor-pointer appearance-none rounded-full bg-white/20 sm:block"
                     style={{
                       background: `linear-gradient(90deg, rgba(34,197,94,0.95) ${volumePercent}%, rgba(255,255,255,0.22) ${volumePercent}%)`,
                     }}
@@ -656,14 +752,17 @@ export default function VideoLessonPlayer({
                   />
 
                   <div className="rounded-md bg-white/10 px-2 py-1 text-xs font-medium text-white/85">
-                    {formatTime(currentTime)} / {formatTime(duration)}
+                    {formatTime(displayedTime)} / {formatTime(duration)}
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={cyclePlaybackRate}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      cyclePlaybackRate();
+                    }}
                     className="min-w-[3.25rem] rounded-xl border border-white/25 bg-white/10 px-2 py-2 text-xs font-semibold text-white transition-colors hover:bg-white/20"
                     aria-label="Change playback speed"
                   >
@@ -672,7 +771,8 @@ export default function VideoLessonPlayer({
 
                   <button
                     type="button"
-                    onClick={() => {
+                    onClick={(event) => {
+                      event.stopPropagation();
                       void toggleFullscreen();
                     }}
                     className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/25 bg-white/10 transition-colors hover:bg-white/20"
