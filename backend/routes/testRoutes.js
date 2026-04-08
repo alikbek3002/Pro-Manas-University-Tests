@@ -218,14 +218,14 @@ function resolveVideoGrant(grantToken, req) {
   const fingerprint = createClientFingerprint(req);
   if (
     grant.fingerprint?.ip
-    && fingerprint.ip
+    && fingerprint?.ip
     && grant.fingerprint.ip !== fingerprint.ip
   ) {
     return null;
   }
   if (
     grant.fingerprint?.uaHash
-    && fingerprint.uaHash
+    && fingerprint?.uaHash
     && grant.fingerprint.uaHash !== fingerprint.uaHash
   ) {
     return null;
