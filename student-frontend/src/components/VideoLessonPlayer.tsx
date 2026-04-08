@@ -83,6 +83,7 @@ export default function VideoLessonPlayer({
   const [isBuffering, setIsBuffering] = useState(false);
   const [showControls, setShowControls] = useState(true);
   const [currentTime, setCurrentTime] = useState(0);
+  const [seekTargetTime, setSeekTargetTime] = useState<number | null>(null);
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(0.85);
   const [isMuted, setIsMuted] = useState(false);
@@ -207,12 +208,14 @@ export default function VideoLessonPlayer({
       if (video.paused || video.ended) {
         await video.play();
       } else {
+        clearPendingAutoplay();
+        setIsBuffering(false);
         video.pause();
       }
     } catch {
       // Browsers may block autoplay without interaction.
     }
-  }, []);
+  }, [clearPendingAutoplay]);
 
   const toggleMute = useCallback(() => {
     setIsMuted((prev) => {
@@ -290,6 +293,7 @@ export default function VideoLessonPlayer({
     video.removeAttribute('src');
     video.load();
     setCurrentTime(0);
+    setSeekTargetTime(null);
     setDuration(0);
     setIsPlaying(false);
     setIsBuffering(true);
@@ -366,6 +370,9 @@ export default function VideoLessonPlayer({
       setDuration(Number.isFinite(video.duration) ? video.duration : 0);
     };
     const handleTimeUpdate = () => {
+      if (seekTargetTime !== null || video.seeking) {
+        return;
+      }
       setCurrentTime(Number.isFinite(video.currentTime) ? video.currentTime : 0);
     };
     const handlePlay = () => {
@@ -375,12 +382,22 @@ export default function VideoLessonPlayer({
       scheduleHideControls();
     };
     const handlePause = () => {
+      clearPendingAutoplay();
       setIsPlaying(false);
+      setIsBuffering(false);
       setShowControls(true);
       clearHideControlsTimer();
     };
     const handleWaiting = () => {
       if (!video.paused) setIsBuffering(true);
+    };
+    const handleSeeking = () => {
+      setIsBuffering(true);
+    };
+    const handleSeeked = () => {
+      setSeekTargetTime(null);
+      setCurrentTime(Number.isFinite(video.currentTime) ? video.currentTime : 0);
+      setIsBuffering(false);
     };
     const handlePlaying = () => {
       setIsBuffering(false);
@@ -400,6 +417,8 @@ export default function VideoLessonPlayer({
     video.addEventListener('play', handlePlay);
     video.addEventListener('pause', handlePause);
     video.addEventListener('waiting', handleWaiting);
+    video.addEventListener('seeking', handleSeeking);
+    video.addEventListener('seeked', handleSeeked);
     video.addEventListener('playing', handlePlaying);
     video.addEventListener('ended', handleEnded);
     video.addEventListener('error', handleError);
@@ -411,11 +430,13 @@ export default function VideoLessonPlayer({
       video.removeEventListener('play', handlePlay);
       video.removeEventListener('pause', handlePause);
       video.removeEventListener('waiting', handleWaiting);
+      video.removeEventListener('seeking', handleSeeking);
+      video.removeEventListener('seeked', handleSeeked);
       video.removeEventListener('playing', handlePlaying);
       video.removeEventListener('ended', handleEnded);
       video.removeEventListener('error', handleError);
     };
-  }, [clearHideControlsTimer, clearPendingAutoplay, playableSource, requestPlaybackRecovery, scheduleHideControls]);
+  }, [clearHideControlsTimer, clearPendingAutoplay, playableSource, requestPlaybackRecovery, scheduleHideControls, seekTargetTime]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -569,11 +590,11 @@ export default function VideoLessonPlayer({
                 type="range"
                 min={0}
                 max={duration || 0}
-                value={currentTime}
+                value={seekTargetTime ?? currentTime}
                 step={0.1}
                 onChange={(event) => {
                   const nextTime = Number(event.target.value);
-                  setCurrentTime(nextTime);
+                  setSeekTargetTime(nextTime);
                   if (videoRef.current) {
                     videoRef.current.currentTime = nextTime;
                   }
