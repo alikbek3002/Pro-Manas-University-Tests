@@ -61,7 +61,6 @@ export default function VideoLessonPlayer({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const controlsHideTimerRef = useRef<number | null>(null);
-  const startupTimeoutRef = useRef<number | null>(null);
   const recoveryRequestedRef = useRef(false);
 
   const playableSource = getPlayableSource(lesson);
@@ -93,13 +92,6 @@ export default function VideoLessonPlayer({
     if (controlsHideTimerRef.current) {
       window.clearTimeout(controlsHideTimerRef.current);
       controlsHideTimerRef.current = null;
-    }
-  }, []);
-
-  const clearStartupTimeout = useCallback(() => {
-    if (startupTimeoutRef.current) {
-      window.clearTimeout(startupTimeoutRef.current);
-      startupTimeoutRef.current = null;
     }
   }, []);
 
@@ -213,13 +205,6 @@ export default function VideoLessonPlayer({
     setIsBuffering(true);
     setShowControls(true);
 
-    clearStartupTimeout();
-    startupTimeoutRef.current = window.setTimeout(() => {
-      const media = videoRef.current;
-      if (!media || media.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) return;
-      requestPlaybackRecovery('startup-timeout');
-    }, 10_000);
-
     if (isHls && Hls.isSupported()) {
       const hls = new Hls({
         enableWorker: true,
@@ -242,18 +227,16 @@ export default function VideoLessonPlayer({
       hls.attachMedia(video);
 
       return () => {
-        clearStartupTimeout();
         hls.destroy();
       };
     }
 
     video.src = playableSource;
     return () => {
-      clearStartupTimeout();
       video.removeAttribute('src');
       video.load();
     };
-  }, [clearStartupTimeout, isHls, playableSource, requestPlaybackRecovery]);
+  }, [isHls, playableSource, requestPlaybackRecovery]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -262,7 +245,6 @@ export default function VideoLessonPlayer({
     const handleLoadedMetadata = () => {
       setDuration(Number.isFinite(video.duration) ? video.duration : 0);
       setIsBuffering(false);
-      clearStartupTimeout();
     };
     const handleDurationChange = () => {
       setDuration(Number.isFinite(video.duration) ? video.duration : 0);
@@ -285,7 +267,6 @@ export default function VideoLessonPlayer({
     };
     const handlePlaying = () => {
       setIsBuffering(false);
-      clearStartupTimeout();
     };
     const handleEnded = () => {
       setIsPlaying(false);
@@ -317,7 +298,7 @@ export default function VideoLessonPlayer({
       video.removeEventListener('ended', handleEnded);
       video.removeEventListener('error', handleError);
     };
-  }, [clearHideControlsTimer, clearStartupTimeout, playableSource, requestPlaybackRecovery, scheduleHideControls]);
+  }, [clearHideControlsTimer, playableSource, requestPlaybackRecovery, scheduleHideControls]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -346,8 +327,7 @@ export default function VideoLessonPlayer({
 
   useEffect(() => () => {
     clearHideControlsTimer();
-    clearStartupTimeout();
-  }, [clearHideControlsTimer, clearStartupTimeout]);
+  }, [clearHideControlsTimer]);
 
   if (!lesson) {
     return (

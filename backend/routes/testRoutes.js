@@ -28,6 +28,7 @@ const TOKEN_REFRESH_THRESHOLD_SECONDS = 300;
 const VIDEO_GRANT_TTL_SECONDS = Math.max(60, Number(process.env.VIDEO_GRANT_TTL_SECONDS) || 1800);
 const VIDEO_SEGMENT_GRANT_TTL_SECONDS = Math.max(30, Number(process.env.VIDEO_SEGMENT_GRANT_TTL_SECONDS) || 300);
 const VIDEO_GRANT_BIND_IP = String(process.env.VIDEO_GRANT_BIND_IP || 'false').trim().toLowerCase() === 'true';
+const VIDEO_GRANT_BIND_UA = String(process.env.VIDEO_GRANT_BIND_UA || 'false').trim().toLowerCase() === 'true';
 
 function getDefaultSubjectCodesForProgram(program) {
   if (!program) return [];
@@ -145,13 +146,19 @@ function getVideoGrantSecret() {
 }
 
 function createClientFingerprint(req) {
+  if (!VIDEO_GRANT_BIND_IP && !VIDEO_GRANT_BIND_UA) {
+    return null;
+  }
+
   const userAgent = String(req.get('user-agent') || '');
-  const fingerprint = {
-    uaHash: crypto.createHash('sha256').update(userAgent).digest('hex').slice(0, 24),
-  };
+  const fingerprint = {};
 
   if (VIDEO_GRANT_BIND_IP) {
     fingerprint.ip = String(req.ip || req.socket?.remoteAddress || '');
+  }
+
+  if (VIDEO_GRANT_BIND_UA) {
+    fingerprint.uaHash = crypto.createHash('sha256').update(userAgent).digest('hex').slice(0, 24);
   }
 
   return fingerprint;
