@@ -385,8 +385,7 @@ async function toSecureVideoLesson(req, lesson) {
     }
   }
 
-  let mp4ProxyUrl = null;
-  let genericProxyFallbackUrl = null;
+  const publicMp4FallbackUrl = mp4SourceUrl || (streamType === 'mp4' ? fallbackSourceUrl : null);
 
   if (hlsSourceUrl) {
     const hlsGrantId = createVideoGrant({
@@ -400,25 +399,14 @@ async function toSecureVideoLesson(req, lesson) {
     }
   }
 
-  if (mp4SourceUrl) {
-    const mp4GrantId = createVideoGrant({
-      req,
-      lessonId: lesson.id,
-      sourceUrl: mp4SourceUrl,
-      ttlSeconds: VIDEO_GRANT_TTL_SECONDS,
-    });
-    if (mp4GrantId) {
-      mp4ProxyUrl = buildVideoProxyUrl(mp4GrantId);
-    }
-  }
-
   if (presignedPlaybackUrl) {
     secureLesson.mp4Url = presignedPlaybackUrl;
-  } else if (mp4ProxyUrl) {
-    secureLesson.mp4Url = mp4ProxyUrl;
+  } else if (publicMp4FallbackUrl) {
+    secureLesson.mp4Url = publicMp4FallbackUrl;
   }
 
-  if (!genericProxyFallbackUrl && fallbackSourceUrl) {
+  let genericProxyFallbackUrl = null;
+  if (!publicMp4FallbackUrl && fallbackSourceUrl) {
     const fallbackGrantId = createVideoGrant({
       req,
       lessonId: lesson.id,
@@ -431,12 +419,12 @@ async function toSecureVideoLesson(req, lesson) {
   }
 
   if (presignedPlaybackUrl) {
-    // Keep proxy URL as explicit fallback for clients that fail to play direct presigned URL.
-    secureLesson.playbackUrl = mp4ProxyUrl || genericProxyFallbackUrl || presignedPlaybackUrl;
+    // Fall back to the direct public CDN URL before touching the Railway proxy.
+    secureLesson.playbackUrl = publicMp4FallbackUrl || genericProxyFallbackUrl || presignedPlaybackUrl;
   } else if (!secureLesson.hlsUrl && !secureLesson.mp4Url) {
     secureLesson.playbackUrl = genericProxyFallbackUrl;
   } else {
-    secureLesson.playbackUrl = secureLesson.mp4Url || secureLesson.hlsUrl || genericProxyFallbackUrl;
+    secureLesson.playbackUrl = secureLesson.mp4Url || publicMp4FallbackUrl || secureLesson.hlsUrl || genericProxyFallbackUrl;
   }
 
   secureLesson.isPlayable = Boolean(secureLesson.playbackUrl || secureLesson.hlsUrl || secureLesson.mp4Url);

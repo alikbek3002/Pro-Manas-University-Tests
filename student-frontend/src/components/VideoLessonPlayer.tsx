@@ -33,8 +33,8 @@ function getPlayableSources(lesson: VideoLesson | null): string[] {
 
   const candidates = [
     resolveApiMediaUrl(lesson.mp4Url),
-    resolveApiMediaUrl(lesson.hlsUrl),
     resolveApiMediaUrl(lesson.playbackUrl),
+    resolveApiMediaUrl(lesson.hlsUrl),
     resolveApiMediaUrl(lesson.previewUrl),
   ].filter((item): item is string => Boolean(item));
 
@@ -215,6 +215,9 @@ export default function VideoLessonPlayer({
     if (!video || !playableSource) return;
 
     recoveryRequestedRef.current = false;
+    video.pause();
+    video.removeAttribute('src');
+    video.load();
     setCurrentTime(0);
     setDuration(0);
     setIsPlaying(false);
@@ -248,7 +251,9 @@ export default function VideoLessonPlayer({
     }
 
     video.src = playableSource;
+    video.load();
     return () => {
+      video.pause();
       video.removeAttribute('src');
       video.load();
     };
@@ -371,14 +376,14 @@ export default function VideoLessonPlayer({
       onTouchStart={revealControls}
       onContextMenu={(event) => event.preventDefault()}
     >
-      <AnimatePresence mode="wait" initial={false}>
+      <AnimatePresence initial={false}>
         <motion.div
-          key={lesson.id}
+          key={`${lesson.id}:${sourceAttemptIndex}`}
           className="relative"
-          initial={{ opacity: 0, scale: 1.02, filter: 'blur(6px)' }}
-          animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
-          exit={{ opacity: 0, scale: 0.985, filter: 'blur(8px)' }}
-          transition={{ duration: 0.42, ease: [0.22, 1, 0.36, 1] }}
+          initial={{ opacity: 0.88 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0.92 }}
+          transition={{ duration: 0.12, ease: 'easeOut' }}
         >
           <video
             ref={videoRef}
