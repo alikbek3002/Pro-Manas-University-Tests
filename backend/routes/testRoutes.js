@@ -19,6 +19,10 @@ const {
   findVideoLessonForProgram,
   resolveAbsoluteVideoPath,
 } = require('../lib/videoCatalog');
+const {
+  getPresignedVideoUrl,
+  isPresignedEnabled,
+} = require('../lib/videoPresigner');
 
 const router = express.Router();
 
@@ -29,6 +33,7 @@ const VIDEO_GRANT_TTL_SECONDS = Math.max(60, Number(process.env.VIDEO_GRANT_TTL_
 const VIDEO_SEGMENT_GRANT_TTL_SECONDS = Math.max(30, Number(process.env.VIDEO_SEGMENT_GRANT_TTL_SECONDS) || 300);
 const VIDEO_GRANT_BIND_IP = String(process.env.VIDEO_GRANT_BIND_IP || 'false').trim().toLowerCase() === 'true';
 const VIDEO_GRANT_BIND_UA = String(process.env.VIDEO_GRANT_BIND_UA || 'false').trim().toLowerCase() === 'true';
+const R2_PRESIGNED_TTL_SECONDS = Math.max(60, Number(process.env.R2_PRESIGNED_TTL_SECONDS) || 1800);
 
 function getDefaultSubjectCodesForProgram(program) {
   if (!program) return [];
@@ -348,7 +353,7 @@ function rewritePlaylistWithVideoGrants({
     .join('\n');
 }
 
-function toSecureVideoLesson(req, lesson) {
+async function toSecureVideoLesson(req, lesson) {
   const secureLesson = {
     ...lesson,
     playbackUrl: null,
@@ -361,9 +366,23 @@ function toSecureVideoLesson(req, lesson) {
   const hlsSourceUrl = lesson.hlsUrl || null;
   const mp4SourceUrl = lesson.mp4Url || null;
   const fallbackSourceUrl = lesson.playbackUrl || null;
+  const streamType = String(lesson.streamType || '').toLowerCase();
 
   if (!hlsSourceUrl && !mp4SourceUrl && !fallbackSourceUrl) {
     return secureLesson;
+  }
+
+  let presignedPlaybackUrl = null;
+  const canTryPresigned = isPresignedEnabled()
+    && Boolean(lesson.objectKey)
+    && (Boolean(mp4SourceUrl) || (Boolean(fallbackSourceUrl) && !hlsSourceUrl && streamType === 'mp4'));
+
+  if (canTryPresigned) {
+    try {
+      presignedPlaybackUrl = await getPresignedVideoUrl(lesson.objectKey, R2_PRESIGNED_TTL_SECONDS);
+    } catch (error) {
+      console.error(`Failed to create presigned video URL for lesson ${lesson.id}:`, error);
+    }
   }
 
   if (hlsSourceUrl) {
@@ -378,7 +397,9 @@ function toSecureVideoLesson(req, lesson) {
     }
   }
 
-  if (mp4SourceUrl) {
+  if (presignedPlaybackUrl) {
+    secureLesson.mp4Url = presignedPlaybackUrl;
+  } else if (mp4SourceUrl) {
     const mp4GrantId = createVideoGrant({
       req,
       lessonId: lesson.id,
@@ -973,7 +994,7 @@ router.get('/videos', async (req, res) => {
     }
 
     const rawLessons = await fetchVideoLessonsForProgram(program.code, subjectCode);
-    const lessons = rawLessons.map((lesson) => toSecureVideoLesson(req, lesson));
+    const lessons = await Promise.all(rawLessons.map((lesson) => toSecureVideoLesson(req, lesson)));
 
     return res.json({
       program: {

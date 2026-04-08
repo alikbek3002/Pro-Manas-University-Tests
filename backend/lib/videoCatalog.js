@@ -130,6 +130,25 @@ function buildPublicVideoUrl(relativePath) {
   return `${baseUrl}/${encodePathForUrl(relativePath)}`;
 }
 
+function toR2ObjectKey(sourceRelativePath) {
+  const rawPath = String(sourceRelativePath || '').trim();
+  if (!rawPath) return null;
+
+  const normalized = rawPath
+    .replace(/\\/g, '/')
+    .replace(/^\/+/, '')
+    .replace(/^\.\//, '');
+
+  if (!normalized) return null;
+
+  const segments = normalized.split('/').filter(Boolean);
+  if (!segments.length || segments.some((segment) => segment === '..')) {
+    return null;
+  }
+
+  return segments.join('/');
+}
+
 function buildLessonResponse(row) {
   const publicPlaybackUrl = row.hls_url || row.mp4_url || row.playback_url || null;
   const previewEnabled = isLocalVideoPreviewEnabled();
@@ -155,6 +174,7 @@ function buildLessonResponse(row) {
     isPublished: Boolean(row.is_published),
     storageProvider: row.storage_provider,
     relativePath: row.source_relative_path,
+    objectKey: toR2ObjectKey(row.source_relative_path),
     durationSeconds: row.duration_seconds ? Number(row.duration_seconds) : null,
     meta: row.meta || {},
   };
