@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import Hls from 'hls.js';
 import {
@@ -14,6 +14,8 @@ import { resolveApiMediaUrl, type VideoLesson } from '../lib/api';
 
 interface VideoLessonPlayerProps {
   lesson: VideoLesson | null;
+  autoplayLessonId?: string | null;
+  autoplayRequestKey?: number;
   watermarkText?: string;
   isRefreshingSource?: boolean;
   onPlaybackIssue?: (reason: string) => void | Promise<void>;
@@ -56,6 +58,8 @@ function formatTime(totalSeconds: number) {
 
 export default function VideoLessonPlayer({
   lesson,
+  autoplayLessonId = null,
+  autoplayRequestKey = 0,
   watermarkText,
   isRefreshingSource = false,
   onPlaybackIssue,
@@ -64,6 +68,8 @@ export default function VideoLessonPlayer({
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const controlsHideTimerRef = useRef<number | null>(null);
   const recoveryRequestedRef = useRef(false);
+  const pendingAutoplayRequestRef = useRef<number | null>(null);
+  const completedAutoplayRequestRef = useRef(0);
 
   const playableSources = useMemo(() => getPlayableSources(lesson), [lesson]);
   const sourcesSignature = useMemo(() => playableSources.join('|'), [playableSources]);
@@ -100,6 +106,40 @@ export default function VideoLessonPlayer({
     }
   }, []);
 
+  const clearPendingAutoplay = useCallback(() => {
+    const requestKey = pendingAutoplayRequestRef.current;
+    if (!requestKey) return;
+
+    completedAutoplayRequestRef.current = requestKey;
+    pendingAutoplayRequestRef.current = null;
+  }, []);
+
+  const tryAutoplay = useCallback(async (video: HTMLVideoElement) => {
+    const requestKey = pendingAutoplayRequestRef.current;
+    if (!requestKey) return;
+
+    if (!video.paused && !video.ended) {
+      clearPendingAutoplay();
+      return;
+    }
+
+    try {
+      await video.play();
+    } catch (error) {
+      if (pendingAutoplayRequestRef.current !== requestKey) {
+        return;
+      }
+
+      const errorName = error instanceof DOMException ? error.name : '';
+      if (errorName === 'AbortError') {
+        return;
+      }
+
+      clearPendingAutoplay();
+      setIsBuffering(false);
+    }
+  }, [clearPendingAutoplay]);
+
   const requestPlaybackRecovery = useCallback((reason: string) => {
     if (sourceAttemptIndex + 1 < playableSources.length) {
       setSourceAttemptIndex((prev) => Math.min(prev + 1, playableSources.length - 1));
@@ -110,14 +150,40 @@ export default function VideoLessonPlayer({
 
     if (recoveryRequestedRef.current) return;
     recoveryRequestedRef.current = true;
+    clearPendingAutoplay();
     setShowControls(true);
     setIsBuffering(false);
     void onPlaybackIssue?.(reason);
-  }, [onPlaybackIssue, playableSources.length, sourceAttemptIndex]);
+  }, [clearPendingAutoplay, onPlaybackIssue, playableSources.length, sourceAttemptIndex]);
 
   useEffect(() => {
     setSourceAttemptIndex(0);
   }, [lesson?.id, sourcesSignature]);
+
+  useEffect(() => {
+    if (!playableSource || typeof document === 'undefined') return;
+
+    let origin = '';
+    try {
+      origin = new URL(playableSource, window.location.href).origin;
+    } catch {
+      return;
+    }
+
+    const rels = ['preconnect', 'dns-prefetch'];
+    for (const rel of rels) {
+      const existing = document.head.querySelector(`link[rel="${rel}"][href="${origin}"]`);
+      if (existing) continue;
+
+      const link = document.createElement('link');
+      link.rel = rel;
+      link.href = origin;
+      if (rel === 'preconnect') {
+        link.crossOrigin = 'anonymous';
+      }
+      document.head.appendChild(link);
+    }
+  }, [playableSource]);
 
   const scheduleHideControls = useCallback(() => {
     clearHideControlsTimer();
@@ -210,9 +276,14 @@ export default function VideoLessonPlayer({
     };
   }, []);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const video = videoRef.current;
-    if (!video || !playableSource) return;
+    if (!video) return;
+
+    if (!playableSource) {
+      clearPendingAutoplay();
+      return;
+    }
 
     recoveryRequestedRef.current = false;
     video.pause();
@@ -241,6 +312,9 @@ export default function VideoLessonPlayer({
           requestPlaybackRecovery(`hls-${data.type || 'fatal'}`);
         }
       });
+      hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        void tryAutoplay(video);
+      });
 
       hls.loadSource(playableSource);
       hls.attachMedia(video);
@@ -252,12 +326,33 @@ export default function VideoLessonPlayer({
 
     video.src = playableSource;
     video.load();
+    void tryAutoplay(video);
     return () => {
       video.pause();
       video.removeAttribute('src');
       video.load();
     };
-  }, [isHls, playableSource, requestPlaybackRecovery]);
+  }, [clearPendingAutoplay, isHls, playableSource, requestPlaybackRecovery, tryAutoplay]);
+
+  useLayoutEffect(() => {
+    if (!lesson?.id || autoplayLessonId !== lesson.id) {
+      return;
+    }
+
+    if (!autoplayRequestKey || autoplayRequestKey === completedAutoplayRequestRef.current) {
+      return;
+    }
+
+    pendingAutoplayRequestRef.current = autoplayRequestKey;
+
+    const video = videoRef.current;
+    if (!video || !playableSource) {
+      clearPendingAutoplay();
+      return;
+    }
+
+    void tryAutoplay(video);
+  }, [autoplayLessonId, autoplayRequestKey, clearPendingAutoplay, lesson?.id, playableSource, tryAutoplay]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -274,6 +369,7 @@ export default function VideoLessonPlayer({
       setCurrentTime(Number.isFinite(video.currentTime) ? video.currentTime : 0);
     };
     const handlePlay = () => {
+      clearPendingAutoplay();
       setIsPlaying(true);
       setIsBuffering(false);
       scheduleHideControls();
@@ -319,7 +415,7 @@ export default function VideoLessonPlayer({
       video.removeEventListener('ended', handleEnded);
       video.removeEventListener('error', handleError);
     };
-  }, [clearHideControlsTimer, playableSource, requestPlaybackRecovery, scheduleHideControls]);
+  }, [clearHideControlsTimer, clearPendingAutoplay, playableSource, requestPlaybackRecovery, scheduleHideControls]);
 
   useEffect(() => {
     const video = videoRef.current;

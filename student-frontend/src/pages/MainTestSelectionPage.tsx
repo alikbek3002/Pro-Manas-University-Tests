@@ -85,6 +85,7 @@ export default function MainTestSelectionPage() {
   const [selectedGrade, setSelectedGrade] = useState<number | null>(null);
   const [selectedPart, setSelectedPart] = useState<number | null>(null);
   const [selectedLessonId, setSelectedLessonId] = useState<string | null>(null);
+  const [videoAutoplayRequestKey, setVideoAutoplayRequestKey] = useState(0);
   const [isPartModalOpen, setIsPartModalOpen] = useState(false);
   const [generating, setGenerating] = useState(false);
 
@@ -146,6 +147,11 @@ export default function MainTestSelectionPage() {
 
   const videoLessons = videosQuery.data?.lessons || [];
   const selectedVideoLesson = videoLessons.find((lesson) => lesson.id === selectedLessonId) || videoLessons[0] || null;
+
+  const handleSelectVideoLesson = useCallback((lessonId: string) => {
+    setSelectedLessonId(lessonId);
+    setVideoAutoplayRequestKey((current) => current + 1);
+  }, []);
 
   const handleVideoPlaybackIssue = useCallback(async () => {
     if (!selectedSubjectCode || videosQuery.isFetching) return;
@@ -481,6 +487,8 @@ export default function MainTestSelectionPage() {
                   <div className="space-y-3">
                     <VideoLessonPlayer
                       lesson={selectedVideoLesson}
+                      autoplayLessonId={selectedLessonId}
+                      autoplayRequestKey={videoAutoplayRequestKey}
                       isRefreshingSource={videosQuery.isFetching && !videosQuery.isLoading}
                       onPlaybackIssue={handleVideoPlaybackIssue}
                       watermarkText={`@${student?.username || 'student'} · ${new Date().toLocaleDateString('ru-RU')}`}
@@ -503,8 +511,8 @@ export default function MainTestSelectionPage() {
                         <p className="mt-2 text-xs text-stone-500">
                           {localizeUi(
                             student?.language,
-                            `Файл: ${selectedVideoLesson.filename} • ${formatDuration(selectedVideoLesson.durationSeconds, student?.language)} • ${(selectedVideoLesson.sizeBytes / 1024 / 1024).toFixed(1)} MB`,
-                            `Файл: ${selectedVideoLesson.filename} • ${formatDuration(selectedVideoLesson.durationSeconds, student?.language)} • ${(selectedVideoLesson.sizeBytes / 1024 / 1024).toFixed(1)} MB`,
+                            `Файл: ${selectedVideoLesson.filename} • ${formatDuration(selectedVideoLesson.durationSeconds, student?.language)}`,
+                            `Файл: ${selectedVideoLesson.filename} • ${formatDuration(selectedVideoLesson.durationSeconds, student?.language)}`,
                           )}
                         </p>
                       </div>
@@ -518,7 +526,7 @@ export default function MainTestSelectionPage() {
                         <button
                           key={lesson.id}
                           type="button"
-                          onClick={() => setSelectedLessonId(lesson.id)}
+                          onClick={() => handleSelectVideoLesson(lesson.id)}
                           className={`w-full rounded-2xl border p-3 text-left transition-colors ${
                             isSelected
                               ? 'border-black bg-black text-white'
