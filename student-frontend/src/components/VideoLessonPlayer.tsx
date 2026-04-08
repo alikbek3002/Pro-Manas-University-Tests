@@ -571,32 +571,29 @@ export default function VideoLessonPlayer({
       onTouchStart={revealControls}
       onContextMenu={(event) => event.preventDefault()}
     >
-      <AnimatePresence initial={false}>
-        <motion.div
-          key={`${lesson.id}:${sourceAttemptIndex}`}
-          className="relative"
-          initial={{ opacity: 0.88 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0.92 }}
-          transition={{ duration: 0.12, ease: 'easeOut' }}
-        >
-          <video
-            ref={videoRef}
-            className="aspect-video w-full bg-black"
-            preload="auto"
-            playsInline
-            disablePictureInPicture
-            disableRemotePlayback
-            controlsList="nodownload noplaybackrate noremoteplayback"
-            poster={resolvedPosterUrl || undefined}
-            onClick={(event) => {
-              event.stopPropagation();
-              void togglePlay();
-            }}
-            onContextMenu={(event) => event.preventDefault()}
-          />
-        </motion.div>
-      </AnimatePresence>
+      <motion.div
+        key={`${lesson.id}:${sourceAttemptIndex}`}
+        className="relative aspect-video w-full"
+        initial={{ opacity: 0.88 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.12, ease: 'easeOut' }}
+      >
+        <video
+          ref={videoRef}
+          className="h-full w-full bg-black"
+          preload="auto"
+          playsInline
+          disablePictureInPicture
+          disableRemotePlayback
+          controlsList="nodownload noplaybackrate noremoteplayback"
+          poster={resolvedPosterUrl || undefined}
+          onClick={(event) => {
+            event.stopPropagation();
+            void togglePlay();
+          }}
+          onContextMenu={(event) => event.preventDefault()}
+        />
+      </motion.div>
 
       <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-black/45 via-black/20 to-transparent" />
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
