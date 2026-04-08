@@ -86,7 +86,20 @@ setInterval(() => {
 // Apply rate limits per route group
 app.use('/api/tests/login', rateLimit({ windowMs: 60_000, max: 10 }));
 app.use('/api/tests/generate', rateLimit({ windowMs: 60_000, max: 5 }));
-app.use('/api/tests', rateLimit({ windowMs: 60_000, max: 60 }));
+const proxyVideoRateLimit = rateLimit({
+  windowMs: 60_000,
+  max: 6_000,
+  keyFn: (req) => `${req.ip || req.socket.remoteAddress || 'unknown'}:video-proxy`,
+});
+const testsRateLimit = rateLimit({ windowMs: 60_000, max: 60 });
+
+app.use('/api/tests/videos/proxy', proxyVideoRateLimit);
+app.use('/api/tests', (req, res, next) => {
+  if (req.path.startsWith('/videos/proxy/')) {
+    return next();
+  }
+  return testsRateLimit(req, res, next);
+});
 
 app.use('/api/tests', require('./routes/testRoutes'));
 app.use('/api/demo-tests', require('./routes/demoTestRoutes'));

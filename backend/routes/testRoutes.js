@@ -1,5 +1,7 @@
 const express = require('express');
+const crypto = require('crypto');
 const fs = require('fs');
+const { Readable } = require('stream');
 const supabase = require('../lib/supabase');
 const {
   hashPassword,
@@ -23,6 +25,11 @@ const router = express.Router();
 const SUBJECT_TEST_PARTS = 20;
 const QUESTIONS_PER_TEST = 20;
 const TOKEN_REFRESH_THRESHOLD_SECONDS = 300;
+const VIDEO_GRANT_TTL_SECONDS = Math.max(60, Number(process.env.VIDEO_GRANT_TTL_SECONDS) || 1800);
+const VIDEO_SEGMENT_GRANT_TTL_SECONDS = Math.max(30, Number(process.env.VIDEO_SEGMENT_GRANT_TTL_SECONDS) || 300);
+const VIDEO_GRANT_STORE_MAX_SIZE = Math.max(1_000, Number(process.env.VIDEO_GRANT_STORE_MAX_SIZE) || 50_000);
+const VIDEO_GRANT_PRUNE_INTERVAL_MS = Math.max(5_000, Number(process.env.VIDEO_GRANT_PRUNE_INTERVAL_MS) || 30_000);
+const videoGrantStore = new Map();
 
 function getDefaultSubjectCodesForProgram(program) {
   if (!program) return [];
@@ -124,6 +131,267 @@ function parsePositiveRange(rangeHeader, fileSize) {
 
   return { start, end };
 }
+
+function normalizePositiveInt(value, fallback) {
+  const num = Number(value);
+  if (Number.isFinite(num) && num > 0) return Math.floor(num);
+  return fallback;
+}
+
+function createClientFingerprint(req) {
+  const userAgent = String(req.get('user-agent') || '');
+  return {
+    ip: String(req.ip || req.socket?.remoteAddress || ''),
+    uaHash: crypto.createHash('sha256').update(userAgent).digest('hex').slice(0, 24),
+  };
+}
+
+function pruneExpiredVideoGrants(maxEntries = VIDEO_GRANT_STORE_MAX_SIZE) {
+  const now = Date.now();
+  for (const [grantId, grant] of videoGrantStore.entries()) {
+    if (grant.expiresAt <= now) {
+      videoGrantStore.delete(grantId);
+    }
+  }
+
+  if (videoGrantStore.size <= maxEntries) return;
+  const grants = Array.from(videoGrantStore.entries())
+    .sort((a, b) => a[1].expiresAt - b[1].expiresAt);
+
+  const overflow = videoGrantStore.size - maxEntries;
+  for (let index = 0; index < overflow; index += 1) {
+    const entry = grants[index];
+    if (!entry) break;
+    videoGrantStore.delete(entry[0]);
+  }
+}
+
+function createVideoGrant({ req, lessonId, sourceUrl, ttlSeconds }) {
+  if (!sourceUrl || !req) return null;
+  pruneExpiredVideoGrants();
+
+  const grantId = crypto.randomBytes(18).toString('base64url');
+  const safeTtlSeconds = normalizePositiveInt(ttlSeconds, VIDEO_GRANT_TTL_SECONDS);
+
+  videoGrantStore.set(grantId, {
+    lessonId,
+    sourceUrl,
+    ttlSeconds: safeTtlSeconds,
+    expiresAt: Date.now() + (safeTtlSeconds * 1000),
+    fingerprint: createClientFingerprint(req),
+  });
+
+  return grantId;
+}
+
+function resolveVideoGrant(grantId, req) {
+  const grant = videoGrantStore.get(grantId);
+  if (!grant) return null;
+
+  if (grant.expiresAt <= Date.now()) {
+    videoGrantStore.delete(grantId);
+    return null;
+  }
+
+  const fingerprint = createClientFingerprint(req);
+  if (
+    grant.fingerprint?.ip
+    && fingerprint.ip
+    && grant.fingerprint.ip !== fingerprint.ip
+  ) {
+    return null;
+  }
+  if (
+    grant.fingerprint?.uaHash
+    && fingerprint.uaHash
+    && grant.fingerprint.uaHash !== fingerprint.uaHash
+  ) {
+    return null;
+  }
+
+  const safeTtlSeconds = normalizePositiveInt(grant.ttlSeconds, VIDEO_GRANT_TTL_SECONDS);
+  grant.expiresAt = Date.now() + (safeTtlSeconds * 1000);
+
+  return grant;
+}
+
+function buildVideoProxyUrl(grantId) {
+  return `/api/tests/videos/proxy/${encodeURIComponent(grantId)}`;
+}
+
+function encodeProxyPath(pathValue) {
+  return Buffer.from(String(pathValue || ''), 'utf8').toString('base64url');
+}
+
+function decodeProxyPath(pathValue) {
+  try {
+    return Buffer.from(String(pathValue || ''), 'base64url').toString('utf8');
+  } catch {
+    return null;
+  }
+}
+
+function buildVideoProxyPathUrl(grantId, pathValue) {
+  const encodedGrant = encodeURIComponent(grantId);
+  const encodedPath = encodeURIComponent(encodeProxyPath(pathValue));
+  return `/api/tests/videos/proxy/${encodedGrant}?path=${encodedPath}`;
+}
+
+function resolveAbsoluteVideoUrl(input, baseUrl) {
+  try {
+    return new URL(String(input || ''), baseUrl).toString();
+  } catch {
+    return null;
+  }
+}
+
+function applyVideoSecurityHeaders(res, options = {}) {
+  const isManifest = Boolean(options.isManifest);
+  res.setHeader(
+    'Cache-Control',
+    isManifest
+      ? 'private, max-age=10, must-revalidate'
+      : 'private, max-age=120, stale-while-revalidate=60',
+  );
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Content-Disposition', 'inline');
+  res.setHeader('Referrer-Policy', 'no-referrer');
+}
+
+function buildUpstreamVideoHeaders(req) {
+  const headers = {};
+  if (req.headers.range) {
+    headers.Range = String(req.headers.range);
+  }
+  if (req.headers['if-none-match']) {
+    headers['If-None-Match'] = String(req.headers['if-none-match']);
+  }
+  if (req.headers['if-modified-since']) {
+    headers['If-Modified-Since'] = String(req.headers['if-modified-since']);
+  }
+  return headers;
+}
+
+function isHlsManifestResponse(contentType, sourceUrl) {
+  const type = String(contentType || '').toLowerCase();
+  if (type.includes('application/vnd.apple.mpegurl') || type.includes('application/x-mpegurl')) {
+    return true;
+  }
+
+  return String(sourceUrl || '').toLowerCase().includes('.m3u8');
+}
+
+function isLikelyManifestUrl(sourceUrl) {
+  return String(sourceUrl || '').toLowerCase().includes('.m3u8');
+}
+
+function rewritePlaylistWithVideoGrants({
+  manifestText,
+  baseUrl,
+  req,
+  lessonId,
+  currentGrantId,
+}) {
+  const lines = String(manifestText || '').split('\n');
+
+  return lines
+    .map((line) => {
+      const trimmed = line.trim();
+      if (!trimmed) return line;
+
+      const mapEntryToProxyUrl = (rawUri) => {
+        const absolute = resolveAbsoluteVideoUrl(rawUri, baseUrl);
+        if (!absolute) return rawUri;
+
+        if (isLikelyManifestUrl(absolute)) {
+          const manifestGrantId = createVideoGrant({
+            req,
+            lessonId,
+            sourceUrl: absolute,
+            ttlSeconds: VIDEO_SEGMENT_GRANT_TTL_SECONDS,
+          });
+          if (!manifestGrantId) return rawUri;
+          return buildVideoProxyUrl(manifestGrantId);
+        }
+
+        return buildVideoProxyPathUrl(currentGrantId, rawUri);
+      };
+
+      if (trimmed.startsWith('#')) {
+        return line.replace(/URI="([^"]+)"/g, (_match, uriRaw) => {
+          const secureUri = mapEntryToProxyUrl(uriRaw);
+          return `URI="${secureUri}"`;
+        });
+      }
+
+      return mapEntryToProxyUrl(trimmed);
+    })
+    .join('\n');
+}
+
+function toSecureVideoLesson(req, lesson) {
+  const secureLesson = {
+    ...lesson,
+    playbackUrl: null,
+    hlsUrl: null,
+    mp4Url: null,
+    previewUrl: null,
+    isPlayable: false,
+  };
+
+  const hlsSourceUrl = lesson.hlsUrl || null;
+  const mp4SourceUrl = lesson.mp4Url || null;
+  const fallbackSourceUrl = lesson.playbackUrl || null;
+
+  if (!hlsSourceUrl && !mp4SourceUrl && !fallbackSourceUrl) {
+    return secureLesson;
+  }
+
+  if (hlsSourceUrl) {
+    const hlsGrantId = createVideoGrant({
+      req,
+      lessonId: lesson.id,
+      sourceUrl: hlsSourceUrl,
+      ttlSeconds: VIDEO_GRANT_TTL_SECONDS,
+    });
+    if (hlsGrantId) {
+      secureLesson.hlsUrl = buildVideoProxyUrl(hlsGrantId);
+    }
+  }
+
+  if (mp4SourceUrl) {
+    const mp4GrantId = createVideoGrant({
+      req,
+      lessonId: lesson.id,
+      sourceUrl: mp4SourceUrl,
+      ttlSeconds: VIDEO_GRANT_TTL_SECONDS,
+    });
+    if (mp4GrantId) {
+      secureLesson.mp4Url = buildVideoProxyUrl(mp4GrantId);
+    }
+  }
+
+  if (!secureLesson.hlsUrl && !secureLesson.mp4Url && fallbackSourceUrl) {
+    const fallbackGrantId = createVideoGrant({
+      req,
+      lessonId: lesson.id,
+      sourceUrl: fallbackSourceUrl,
+      ttlSeconds: VIDEO_GRANT_TTL_SECONDS,
+    });
+    if (fallbackGrantId) {
+      secureLesson.playbackUrl = buildVideoProxyUrl(fallbackGrantId);
+    }
+  } else {
+    secureLesson.playbackUrl = secureLesson.mp4Url || secureLesson.hlsUrl;
+  }
+
+  secureLesson.isPlayable = Boolean(secureLesson.playbackUrl || secureLesson.hlsUrl || secureLesson.mp4Url);
+  return secureLesson;
+}
+
+setInterval(() => {
+  pruneExpiredVideoGrants();
+}, VIDEO_GRANT_PRUNE_INTERVAL_MS).unref();
 
 async function getPrimaryProgram(studentId) {
   const { data, error } = await supabase
@@ -481,6 +749,85 @@ router.post('/login', async (req, res) => {
   }
 });
 
+router.get('/videos/proxy/:grantId', async (req, res) => {
+  try {
+    const grant = resolveVideoGrant(req.params.grantId, req);
+    if (!grant?.sourceUrl) {
+      return res.status(403).json({ error: 'Video access expired' });
+    }
+
+    let upstreamSourceUrl = grant.sourceUrl;
+    const encodedPath = typeof req.query.path === 'string' ? req.query.path : '';
+    if (encodedPath) {
+      const decodedPath = decodeProxyPath(encodedPath);
+      if (!decodedPath) {
+        return res.status(400).json({ error: 'Invalid video path token' });
+      }
+
+      const resolvedPathUrl = resolveAbsoluteVideoUrl(decodedPath, grant.sourceUrl);
+      if (!resolvedPathUrl) {
+        return res.status(400).json({ error: 'Invalid video path value' });
+      }
+      upstreamSourceUrl = resolvedPathUrl;
+    }
+
+    const upstreamResponse = await fetch(upstreamSourceUrl, {
+      method: 'GET',
+      headers: buildUpstreamVideoHeaders(req),
+      redirect: 'follow',
+    });
+
+    if (!upstreamResponse.ok && upstreamResponse.status !== 206) {
+      const status = upstreamResponse.status >= 400 && upstreamResponse.status < 500 ? 404 : 502;
+      return res.status(status).json({ error: 'Failed to stream video' });
+    }
+
+    const contentType = upstreamResponse.headers.get('content-type') || '';
+    if (isHlsManifestResponse(contentType, upstreamSourceUrl)) {
+      const manifestText = await upstreamResponse.text();
+      const rewrittenManifest = rewritePlaylistWithVideoGrants({
+        manifestText,
+        baseUrl: upstreamSourceUrl,
+        req,
+        lessonId: grant.lessonId,
+        currentGrantId: req.params.grantId,
+      });
+
+      applyVideoSecurityHeaders(res, { isManifest: true });
+      res.status(upstreamResponse.status === 206 ? 206 : 200);
+      res.setHeader('Content-Type', 'application/vnd.apple.mpegurl; charset=utf-8');
+      return res.send(rewrittenManifest);
+    }
+
+    applyVideoSecurityHeaders(res, { isManifest: false });
+    const passthroughHeaders = [
+      'content-type',
+      'content-length',
+      'accept-ranges',
+      'content-range',
+      'etag',
+      'last-modified',
+    ];
+
+    for (const headerName of passthroughHeaders) {
+      const value = upstreamResponse.headers.get(headerName);
+      if (value) {
+        res.setHeader(headerName, value);
+      }
+    }
+
+    res.status(upstreamResponse.status);
+    if (!upstreamResponse.body) {
+      return res.end();
+    }
+
+    Readable.fromWeb(upstreamResponse.body).pipe(res);
+  } catch (error) {
+    console.error('Proxy student video error:', error);
+    return res.status(500).json({ error: 'Failed to proxy video stream' });
+  }
+});
+
 router.use(authenticateStudent);
 
 router.get('/available', async (req, res) => {
@@ -570,7 +917,8 @@ router.get('/videos', async (req, res) => {
       return res.status(400).json({ error: 'Студенту не назначена программа' });
     }
 
-    const lessons = await fetchVideoLessonsForProgram(program.code, subjectCode);
+    const rawLessons = await fetchVideoLessonsForProgram(program.code, subjectCode);
+    const lessons = rawLessons.map((lesson) => toSecureVideoLesson(req, lesson));
 
     return res.json({
       program: {
@@ -595,6 +943,10 @@ router.get('/videos', async (req, res) => {
 
 router.get('/videos/preview/:id', async (req, res) => {
   try {
+    if (process.env.ALLOW_LOCAL_VIDEO_PREVIEW !== 'true') {
+      return res.status(403).json({ error: 'Local video preview is disabled' });
+    }
+
     const program = await getPrimaryProgram(req.student.id);
     if (!program) {
       return res.status(400).json({ error: 'Студенту не назначена программа' });
@@ -617,9 +969,9 @@ router.get('/videos/preview/:id', async (req, res) => {
         : 'video/mp4';
     const parsedRange = parsePositiveRange(req.headers.range, stat.size);
 
+    applyVideoSecurityHeaders(res);
     res.setHeader('Content-Type', contentType);
     res.setHeader('Accept-Ranges', 'bytes');
-    res.setHeader('Cache-Control', 'private, max-age=0, must-revalidate');
 
     if (!parsedRange) {
       res.setHeader('Content-Length', stat.size);

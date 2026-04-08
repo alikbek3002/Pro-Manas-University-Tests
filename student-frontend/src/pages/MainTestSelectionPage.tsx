@@ -1,10 +1,23 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { AlertCircle, ArrowLeft, BookOpen, Loader2, PlayCircle, Sparkles, Video } from 'lucide-react';
+import {
+  AlertCircle,
+  ArrowLeft,
+  BarChart3,
+  CalendarClock,
+  Loader2,
+  Sparkles,
+  Target,
+  Video,
+} from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { generateStudentTest, type AvailableMainNode, type MainTreeItem } from '../lib/api';
-import { availableTestsQueryOptions, subjectVideosQueryOptions } from '../lib/studentQueries';
+import {
+  availableTestsQueryOptions,
+  subjectVideosQueryOptions,
+  testHistoryQueryOptions,
+} from '../lib/studentQueries';
 import { createActiveTestSnapshot, saveActiveTestSnapshot } from '../lib/activeTestStorage';
 import StudentLayout from '../components/StudentLayout';
 import VideoLessonPlayer from '../components/VideoLessonPlayer';
@@ -40,6 +53,27 @@ function formatMainLineMeta(
   };
 }
 
+function formatDateTime(iso: string, language: 'ru' | 'kg' | undefined): string {
+  const locale = language === 'kg' ? 'ky-KG' : 'ru-RU';
+  return new Date(iso).toLocaleString(locale, {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function formatDuration(seconds: number | null, language: 'ru' | 'kg' | undefined): string {
+  if (!seconds || seconds <= 0) {
+    return localizeUi(language, 'без длительности', 'узактыгы жок');
+  }
+
+  const mins = Math.floor(seconds / 60);
+  const sec = seconds % 60;
+  return `${mins}:${String(sec).padStart(2, '0')}`;
+}
+
 export default function MainTestSelectionPage() {
   const { student } = useAuthStore();
   const navigate = useNavigate();
@@ -59,6 +93,16 @@ export default function MainTestSelectionPage() {
       ? availableTestsQueryOptions(studentId)
       : {
           queryKey: ['student', 'anonymous', 'available'] as const,
+          queryFn: async () => null,
+          enabled: false,
+        },
+  );
+
+  const historyQuery = useQuery(
+    studentId
+      ? testHistoryQueryOptions(studentId)
+      : {
+          queryKey: ['student', 'anonymous', 'history'] as const,
           queryFn: async () => null,
           enabled: false,
         },
@@ -102,6 +146,42 @@ export default function MainTestSelectionPage() {
 
   const videoLessons = videosQuery.data?.lessons || [];
   const selectedVideoLesson = videoLessons.find((lesson) => lesson.id === selectedLessonId) || videoLessons[0] || null;
+
+  const subjectHistory = useMemo(() => {
+    if (!selectedSubject) return [];
+    const history = historyQuery.data?.history || [];
+    return history.filter((entry) => entry.type === 'MAIN' && entry.subject === selectedSubject.id);
+  }, [historyQuery.data, selectedSubject]);
+
+  const subjectStats = useMemo(() => {
+    const total = subjectHistory.length;
+    const passed = subjectHistory.filter((entry) => entry.score_percent >= 70).length;
+    const average = total > 0
+      ? Math.round(subjectHistory.reduce((sum, entry) => sum + entry.score_percent, 0) / total)
+      : 0;
+    const best = total > 0
+      ? subjectHistory.reduce((max, entry) => Math.max(max, entry.score_percent), 0)
+      : 0;
+
+    const totalQuestions = subjectHistory.reduce((sum, entry) => sum + entry.total_questions, 0);
+    const totalCorrect = subjectHistory.reduce((sum, entry) => sum + entry.correct_count, 0);
+    const accuracy = totalQuestions > 0 ? Math.round((totalCorrect / totalQuestions) * 100) : 0;
+
+    const lastAttempt = total > 0
+      ? [...subjectHistory].sort((a, b) => new Date(b.submitted_at).getTime() - new Date(a.submitted_at).getTime())[0]
+      : null;
+
+    return {
+      total,
+      passed,
+      average,
+      best,
+      totalQuestions,
+      totalCorrect,
+      accuracy,
+      lastAttempt,
+    };
+  }, [subjectHistory]);
 
   useEffect(() => {
     const items = mainNode?.items || [];
@@ -198,8 +278,8 @@ export default function MainTestSelectionPage() {
       title={localizeUi(student?.language, 'Предметные тесты', 'Предметтик тесттер')}
       subtitle={localizeUi(
         student?.language,
-        'Выберите предмет, затем раздел и вариант теста',
-        'Предметти, анан бөлүмдү жана тест вариантын тандаңыз',
+        'Предмет выбирается в левой панели, здесь — статистика, тесты и видео',
+        'Предмет сол панелде тандалат, бул жерде статистика, тесттер жана видео',
       )}
     >
       {loading ? (
@@ -216,193 +296,80 @@ export default function MainTestSelectionPage() {
             </div>
           )}
 
-          <section className="rounded-2xl border border-stone-200 bg-white p-4 sm:p-5">
-            <h2 className="mb-4 text-base font-bold text-stone-800 sm:text-lg">
-              {localizeUi(student?.language, '1. Предмет', '1. Предмет')}
-            </h2>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-              {mainNode?.items.map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => {
-                    const next = new URLSearchParams(searchParams);
-                    next.set('subject', item.id);
-                    setSearchParams(next, { replace: true });
-                    setSelectedSubject(item);
-                    setSelectedGrade(item.lines[0]?.grade ?? null);
-                    setSelectedPart(null);
-                    setError(null);
-                  }}
-                  className={`flex flex-col items-center justify-center gap-2 rounded-2xl border-2 p-4 text-center transition-all active:scale-[0.97] ${
-                    selectedSubject?.id === item.id
-                      ? 'border-black bg-black text-white'
-                      : 'border-stone-200 bg-white text-stone-700 hover:border-stone-400'
-                  }`}
-                >
-                  <BookOpen className={`h-5 w-5 ${selectedSubject?.id === item.id ? 'text-stone-300' : 'text-stone-400'}`} />
-                  <span className="text-sm font-bold leading-tight sm:text-base">{item.title}</span>
-                </button>
-              ))}
-            </div>
-          </section>
-
           {selectedSubject && (
             <section className="rounded-2xl border border-stone-200 bg-white p-4 sm:p-5">
-              <h2 className="mb-4 text-base font-bold text-stone-800 sm:text-lg">
-                {localizeUi(student?.language, '2. Разделы предмета', '2. Предмет бөлүмдөрү')}
-              </h2>
-              <div className="grid gap-3 md:grid-cols-2">
-                <div className="rounded-xl border border-stone-200 p-4">
-                  <div className="flex items-center gap-2">
-                    <PlayCircle className="h-5 w-5 text-stone-500" />
-                    <p className="font-semibold text-stone-900">
-                      {localizeUi(student?.language, 'Видеоуроки', 'Видео сабактар')}
-                    </p>
-                  </div>
-                  <p className="mt-2 text-sm text-stone-500">
-                    {localizeUi(
-                      student?.language,
-                      `${selectedSubject.video_lesson_count || 0} уроков в каталоге`,
-                      `Каталогдо ${selectedSubject.video_lesson_count || 0} видео сабак`,
-                    )}
-                  </p>
-                  <p className="mt-1 text-xs text-stone-400">
-                    {localizeUi(
-                      student?.language,
-                      `${selectedSubject.playable_video_lesson_count || 0} готовы к воспроизведению`,
-                      `${selectedSubject.playable_video_lesson_count || 0} дароо ойнойт`,
-                    )}
-                  </p>
-                </div>
-                <div className="rounded-xl border border-blue-200 bg-blue-50/60 p-4">
-                  <div className="flex items-center gap-2">
-                    <Sparkles className="h-5 w-5 text-blue-600" />
-                    <p className="font-semibold text-stone-900">
-                      {localizeUi(student?.language, 'Предметные тесты', 'Предметтик тесттер')}
-                    </p>
-                  </div>
-                  <p className="mt-2 text-sm text-stone-600">
-                    {localizeUi(
-                      student?.language,
-                      'Выберите набор и часть теста, чтобы начать.',
-                      'Баштоо үчүн тест топтомун жана бөлүгүн тандаңыз.',
-                    )}
-                  </p>
-                </div>
-              </div>
-            </section>
-          )}
-
-          {selectedSubject && (
-            <section className="rounded-2xl border border-stone-200 bg-white p-4 sm:p-5">
-              <div className="mb-4 flex items-start justify-between gap-3">
+              <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <h2 className="text-base font-bold text-stone-800 sm:text-lg">
-                    {localizeUi(student?.language, '3. Видеоуроки', '3. Видео сабактар')}
+                  <h2 className="text-base font-bold text-stone-900 sm:text-lg">
+                    {localizeUi(student?.language, '1. Статистика по предмету', '1. Предмет боюнча статистика')}
                   </h2>
                   <p className="text-sm text-stone-500">
-                    {localizeUi(
-                      student?.language,
-                      'Видео идут напрямую по HLS/MP4 URL, а локальный preview нужен только для разработки.',
-                      'Видео HLS/MP4 дареги менен түз ачылат, локал preview иштеп чыгуу үчүн гана.',
-                    )}
+                    {selectedSubject.title}
                   </p>
                 </div>
-                <div className="rounded-full bg-stone-100 px-3 py-1 text-xs font-semibold text-stone-600">
-                  {videoLessons.length}
+                <div className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+                  {localizeUi(student?.language, 'Предмет выбирается слева', 'Предмет сол жактан тандалат')}
                 </div>
               </div>
 
-              {videosQuery.isLoading ? (
-                <div className="flex items-center gap-3 rounded-2xl border border-stone-200 bg-stone-50 p-4 text-sm text-stone-500">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span>{localizeUi(student?.language, 'Загрузка видеоуроков...', 'Видео сабактар жүктөлүүдө...')}</span>
-                </div>
-              ) : videosQuery.error instanceof Error ? (
-                <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-700">
-                  {videosQuery.error.message}
-                </div>
-              ) : videoLessons.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-stone-300 p-5 text-sm text-stone-500">
-                  {localizeUi(
-                    student?.language,
-                    'Для этого предмета видеоуроки еще не добавлены.',
-                    'Бул предмет үчүн видео сабактар азырынча кошула элек.',
-                  )}
-                </div>
-              ) : (
-                <div className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(300px,0.95fr)]">
-                  <div className="space-y-3">
-                    <VideoLessonPlayer lesson={selectedVideoLesson} />
-                    {selectedVideoLesson && (
-                      <div className="rounded-2xl border border-stone-200 bg-stone-50 p-4">
-                        <div className="flex items-center gap-2 text-sm font-semibold text-stone-900">
-                          <Video className="h-4 w-4 text-stone-500" />
-                          <span>{selectedVideoLesson.title}</span>
-                        </div>
-                        <p className="mt-2 text-xs text-stone-500">
-                          {localizeUi(
-                            student?.language,
-                            `Файл: ${selectedVideoLesson.filename} • ${Math.round(selectedVideoLesson.sizeBytes / 1024 / 1024)} MB`,
-                            `Файл: ${selectedVideoLesson.filename} • ${Math.round(selectedVideoLesson.sizeBytes / 1024 / 1024)} MB`,
-                          )}
-                        </p>
-                      </div>
-                    )}
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                <div className="rounded-xl border border-stone-200 bg-stone-50 p-4">
+                  <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-stone-500">
+                    <BarChart3 className="h-4 w-4" />
+                    <span>{localizeUi(student?.language, 'Пройдено тестов', 'Өтүлгөн тесттер')}</span>
                   </div>
+                  <p className="mt-2 text-2xl font-black text-stone-900">{subjectStats.total}</p>
+                  <p className="mt-1 text-xs text-stone-500">
+                    {localizeUi(student?.language, 'Успешно (70%+)', 'Ийгиликтүү (70%+)')}: {subjectStats.passed}
+                  </p>
+                </div>
 
-                  <div className="max-h-[38rem] space-y-2 overflow-y-auto pr-1">
-                    {videoLessons.map((lesson) => {
-                      const isSelected = lesson.id === selectedVideoLesson?.id;
-                      return (
-                        <button
-                          key={lesson.id}
-                          type="button"
-                          onClick={() => setSelectedLessonId(lesson.id)}
-                          className={`w-full rounded-2xl border p-3 text-left transition-colors ${
-                            isSelected
-                              ? 'border-black bg-black text-white'
-                              : 'border-stone-200 bg-white hover:border-stone-400'
-                          }`}
-                        >
-                          <div className="flex items-start justify-between gap-3">
-                            <div>
-                              <p className={`text-sm font-bold ${isSelected ? 'text-white' : 'text-stone-900'}`}>
-                                {lesson.lessonNo ? `${lesson.lessonNo}. ` : ''}{lesson.title}
-                              </p>
-                              <p className={`mt-1 text-xs ${isSelected ? 'text-stone-300' : 'text-stone-500'}`}>
-                                {lesson.filename}
-                              </p>
-                            </div>
-                            <span
-                              className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-                                lesson.isPlayable
-                                  ? isSelected
-                                    ? 'bg-stone-800 text-stone-200'
-                                    : 'bg-emerald-50 text-emerald-700'
-                                  : isSelected
-                                    ? 'bg-stone-800 text-stone-300'
-                                    : 'bg-amber-50 text-amber-700'
-                              }`}
-                            >
-                              {lesson.isPlayable
-                                ? localizeUi(student?.language, 'готов', 'даяр')
-                                : localizeUi(student?.language, 'ожидает CDN', 'CDN күтөт')}
-                            </span>
-                          </div>
-                        </button>
-                      );
-                    })}
+                <div className="rounded-xl border border-stone-200 bg-stone-50 p-4">
+                  <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-stone-500">
+                    <Target className="h-4 w-4" />
+                    <span>{localizeUi(student?.language, 'Средний результат', 'Орточо жыйынтык')}</span>
                   </div>
+                  <p className="mt-2 text-2xl font-black text-stone-900">{subjectStats.average}%</p>
+                  <p className="mt-1 text-xs text-stone-500">
+                    {localizeUi(student?.language, 'Точность ответов', 'Жооп тактыгы')}: {subjectStats.accuracy}%
+                  </p>
                 </div>
-              )}
+
+                <div className="rounded-xl border border-stone-200 bg-stone-50 p-4">
+                  <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-stone-500">
+                    <Sparkles className="h-4 w-4" />
+                    <span>{localizeUi(student?.language, 'Лучший результат', 'Эң мыкты жыйынтык')}</span>
+                  </div>
+                  <p className="mt-2 text-2xl font-black text-stone-900">{subjectStats.best}%</p>
+                  <p className="mt-1 text-xs text-stone-500">
+                    {localizeUi(student?.language, 'Верных ответов', 'Туура жооптор')}: {subjectStats.totalCorrect}/{subjectStats.totalQuestions}
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-stone-200 bg-stone-50 p-4">
+                  <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-stone-500">
+                    <CalendarClock className="h-4 w-4" />
+                    <span>{localizeUi(student?.language, 'Последняя попытка', 'Акыркы аракет')}</span>
+                  </div>
+                  <p className="mt-2 text-sm font-bold text-stone-900">
+                    {historyQuery.isLoading
+                      ? localizeUi(student?.language, 'Обновляем...', 'Жаңыланууда...')
+                      : subjectStats.lastAttempt
+                        ? formatDateTime(subjectStats.lastAttempt.submitted_at, student?.language)
+                        : localizeUi(student?.language, 'Пока нет попыток', 'Азырынча аракеттер жок')}
+                  </p>
+                  <p className="mt-1 text-xs text-stone-500">
+                    {localizeUi(student?.language, 'Видеоуроков', 'Видео сабактар')}: {selectedSubject.playable_video_lesson_count || 0}/{selectedSubject.video_lesson_count || 0}
+                  </p>
+                </div>
+              </div>
             </section>
           )}
 
           {selectedSubject && (
             <section className="rounded-2xl border border-stone-200 bg-white p-4 sm:p-5">
               <h2 className="mb-4 text-base font-bold text-stone-800 sm:text-lg">
-                {localizeUi(student?.language, '4. Набор тестов', '4. Тесттер топтому')}
+                {localizeUi(student?.language, '2. Набор тестов', '2. Тесттер топтому')}
               </h2>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {selectedSubject.lines.map((line) => {
@@ -460,6 +427,115 @@ export default function MainTestSelectionPage() {
                 {localizeUi(student?.language, 'Выбрать часть теста', 'Тесттин бөлүгүн тандоо')}
               </button>
             </div>
+          )}
+
+          {selectedSubject && (
+            <section className="rounded-2xl border border-stone-200 bg-white p-4 sm:p-5">
+              <div className="mb-4 flex items-start justify-between gap-3">
+                <div>
+                  <h2 className="text-base font-bold text-stone-800 sm:text-lg">
+                    {localizeUi(student?.language, '3. Видеоуроки', '3. Видео сабактар')}
+                  </h2>
+                  <p className="text-sm text-stone-500">
+                    {localizeUi(
+                      student?.language,
+                      'Сначала статистика предмета, ниже удобный список уроков и просмотр в плеере.',
+                      'Алгач предмет статистикасы, төмөндө ыңгайлуу тизме жана плеер.',
+                    )}
+                  </p>
+                </div>
+                <div className="rounded-full bg-stone-100 px-3 py-1 text-xs font-semibold text-stone-600">
+                  {videoLessons.length}
+                </div>
+              </div>
+
+              {videosQuery.isLoading ? (
+                <div className="flex items-center gap-3 rounded-2xl border border-stone-200 bg-stone-50 p-4 text-sm text-stone-500">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>{localizeUi(student?.language, 'Загрузка видеоуроков...', 'Видео сабактар жүктөлүүдө...')}</span>
+                </div>
+              ) : videosQuery.error instanceof Error ? (
+                <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-700">
+                  {videosQuery.error.message}
+                </div>
+              ) : videoLessons.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-stone-300 p-5 text-sm text-stone-500">
+                  {localizeUi(
+                    student?.language,
+                    'Для этого предмета видеоуроки еще не добавлены.',
+                    'Бул предмет үчүн видео сабактар азырынча кошула элек.',
+                  )}
+                </div>
+              ) : (
+                <div className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(300px,0.95fr)]">
+                  <div className="space-y-3">
+                    <VideoLessonPlayer
+                      lesson={selectedVideoLesson}
+                      watermarkText={`@${student?.username || 'student'} · ${new Date().toLocaleDateString('ru-RU')}`}
+                    />
+                    {selectedVideoLesson && (
+                      <div className="rounded-2xl border border-stone-200 bg-stone-50 p-4">
+                        <div className="flex items-center gap-2 text-sm font-semibold text-stone-900">
+                          <Video className="h-4 w-4 text-stone-500" />
+                          <span>{selectedVideoLesson.title}</span>
+                        </div>
+                        <p className="mt-2 text-xs text-stone-500">
+                          {localizeUi(
+                            student?.language,
+                            `Файл: ${selectedVideoLesson.filename} • ${formatDuration(selectedVideoLesson.durationSeconds, student?.language)} • ${(selectedVideoLesson.sizeBytes / 1024 / 1024).toFixed(1)} MB`,
+                            `Файл: ${selectedVideoLesson.filename} • ${formatDuration(selectedVideoLesson.durationSeconds, student?.language)} • ${(selectedVideoLesson.sizeBytes / 1024 / 1024).toFixed(1)} MB`,
+                          )}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="max-h-[38rem] space-y-2 overflow-y-auto pr-1">
+                    {videoLessons.map((lesson) => {
+                      const isSelected = lesson.id === selectedVideoLesson?.id;
+                      return (
+                        <button
+                          key={lesson.id}
+                          type="button"
+                          onClick={() => setSelectedLessonId(lesson.id)}
+                          className={`w-full rounded-2xl border p-3 text-left transition-colors ${
+                            isSelected
+                              ? 'border-black bg-black text-white'
+                              : 'border-stone-200 bg-white hover:border-stone-400'
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <p className={`text-sm font-bold ${isSelected ? 'text-white' : 'text-stone-900'}`}>
+                                {lesson.lessonNo ? `${lesson.lessonNo}. ` : ''}{lesson.title}
+                              </p>
+                              <p className={`mt-1 text-xs ${isSelected ? 'text-stone-300' : 'text-stone-500'}`}>
+                                {formatDuration(lesson.durationSeconds, student?.language)}
+                              </p>
+                            </div>
+                            <span
+                              className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                                lesson.isPlayable
+                                  ? isSelected
+                                    ? 'bg-stone-800 text-stone-200'
+                                    : 'bg-emerald-50 text-emerald-700'
+                                  : isSelected
+                                    ? 'bg-stone-800 text-stone-300'
+                                    : 'bg-amber-50 text-amber-700'
+                              }`}
+                            >
+                              {lesson.isPlayable
+                                ? localizeUi(student?.language, 'готов', 'даяр')
+                                : localizeUi(student?.language, 'ожидает CDN', 'CDN күтөт')}
+                            </span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </section>
           )}
         </div>
       )}

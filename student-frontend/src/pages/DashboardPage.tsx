@@ -1,19 +1,20 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import {
   AlertCircle,
-  BookOpen,
+  BarChart3,
+  CalendarClock,
+  CheckCircle2,
   Clock3,
-  FileText,
+  FlaskConical,
   History,
   Loader2,
-  PlayCircle,
+  Trophy,
 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { availableTestsQueryOptions, testHistoryQueryOptions } from '../lib/studentQueries';
 import StudentLayout from '../components/StudentLayout';
-import { getFallbackMainItems } from '../lib/subjectCatalog';
 
 function localizeUi(language: 'ru' | 'kg' | undefined, ruText: string, kgText: string) {
   return language === 'kg' ? kgText : ruText;
@@ -24,6 +25,18 @@ function accountTypeLabel(language: 'ru' | 'kg' | undefined, accountType?: strin
   if (accountType === 'medical') return localizeUi(language, 'Медицинский', 'Медициналык');
   if (accountType === 'manas') return localizeUi(language, 'Манас', 'Манас');
   return localizeUi(language, 'Студент', 'Студент');
+}
+
+function formatDateTime(iso: string, language: 'ru' | 'kg' | undefined): string {
+  const locale = language === 'kg' ? 'ky-KG' : 'ru-RU';
+  const date = new Date(iso);
+  return date.toLocaleString(locale, {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }
 
 export default function DashboardPage() {
@@ -42,6 +55,16 @@ export default function DashboardPage() {
         },
   );
 
+  const historyQuery = useQuery(
+    studentId
+      ? testHistoryQueryOptions(studentId)
+      : {
+          queryKey: ['student', 'anonymous', 'history'] as const,
+          queryFn: async () => null,
+          enabled: false,
+        },
+  );
+
   useEffect(() => {
     if (!studentId || !token || !availableQuery.data) return;
     const warmupTimeout = window.setTimeout(() => {
@@ -54,126 +77,162 @@ export default function DashboardPage() {
   }, [availableQuery.data, queryClient, studentId, token]);
 
   const availableData = availableQuery.data ?? null;
-  const mainNode = availableData?.test_types?.find((n) => n.id === 'MAIN' && 'items' in n);
   const trialNode = availableData?.test_types?.find((n) => n.id === 'TRIAL' && 'rounds' in n);
-  const error = availableQuery.error instanceof Error ? availableQuery.error.message : null;
-  const loading = availableQuery.isLoading;
+  const availableError = availableQuery.error instanceof Error ? availableQuery.error.message : null;
+  const availableLoading = availableQuery.isLoading;
+  const historyError = historyQuery.error instanceof Error ? historyQuery.error.message : null;
+  const history = historyQuery.data?.history ?? [];
 
-  const subjects = (mainNode?.items && mainNode.items.length > 0)
-    ? mainNode.items
-    : getFallbackMainItems(student?.accountType, student?.manasTrack);
-  const subjectCount = subjects.length;
-  const readySubjects = subjects.filter((item) => item.status === 'ready').length;
-  const maxPartCount = subjects.reduce((max, item) => {
-    const lineMax = item.lines.reduce((lineBest, line) => Math.max(lineBest, line.part_count ?? 0), 0);
-    return Math.max(max, lineMax);
-  }, 0);
+  const stats = useMemo(() => {
+    const totalTests = history.length;
+    const mainTests = history.filter((entry) => entry.type === 'MAIN').length;
+    const trialTests = history.filter((entry) => entry.type === 'TRIAL').length;
+
+    const totalScore = history.reduce((sum, entry) => sum + entry.score_percent, 0);
+    const averageScore = totalTests > 0 ? Math.round(totalScore / totalTests) : 0;
+
+    const bestScore = totalTests > 0
+      ? history.reduce((best, entry) => Math.max(best, entry.score_percent), 0)
+      : 0;
+
+    const totalQuestions = history.reduce((sum, entry) => sum + entry.total_questions, 0);
+    const totalCorrect = history.reduce((sum, entry) => sum + entry.correct_count, 0);
+    const accuracyPercent = totalQuestions > 0 ? Math.round((totalCorrect / totalQuestions) * 100) : 0;
+
+    const lastAttempt = totalTests > 0
+      ? [...history].sort((a, b) => new Date(b.submitted_at).getTime() - new Date(a.submitted_at).getTime())[0]
+      : null;
+
+    return {
+      totalTests,
+      mainTests,
+      trialTests,
+      averageScore,
+      bestScore,
+      totalQuestions,
+      totalCorrect,
+      accuracyPercent,
+      lastAttempt,
+    };
+  }, [history]);
 
   return (
     <StudentLayout
       title={localizeUi(student?.language, 'Панель студента', 'Студент панели')}
       subtitle={localizeUi(
         student?.language,
-        'Ваши предметы, видеоуроки и тесты',
-        'Сиздин предметтер, видео сабактар жана тесттер',
+        'Статистика обучения и быстрый доступ к тестам',
+        'Окуу статистикасы жана тесттерге ыкчам кирүү',
       )}
     >
-      {loading ? (
+      {availableLoading ? (
         <div className="flex items-center gap-3 rounded-2xl border border-stone-200 bg-white p-5 text-stone-500">
           <Loader2 className="h-5 w-5 animate-spin" />
           <span>{localizeUi(student?.language, 'Загрузка данных...', 'Маалымат жүктөлүүдө...')}</span>
         </div>
-      ) : error ? (
+      ) : availableError ? (
         <div className="flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 p-5 text-red-700">
           <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
-          <p className="text-sm font-medium">{error}</p>
+          <p className="text-sm font-medium">{availableError}</p>
         </div>
       ) : (
         <div className="space-y-6">
+          {historyError ? (
+            <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-800">
+              <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
+              <p className="text-sm font-medium">
+                {localizeUi(student?.language, 'Историю тестов сейчас не удалось загрузить.', 'Тест тарыхын азыр жүктөө мүмкүн болбой калды.')}
+                {' '}
+                {historyError}
+              </p>
+            </div>
+          ) : null}
+
           <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <div className="rounded-2xl border border-stone-200 bg-white p-4">
-              <p className="text-xs uppercase tracking-wide text-stone-400">
-                {localizeUi(student?.language, 'Студент', 'Студент')}
-              </p>
-              <p className="mt-2 text-lg font-bold text-stone-900">{student?.fullName || '—'}</p>
-              <p className="mt-1 text-sm text-stone-500">@{student?.username}</p>
-            </div>
-            <div className="rounded-2xl border border-stone-200 bg-white p-4">
-              <p className="text-xs uppercase tracking-wide text-stone-400">
-                {localizeUi(student?.language, 'Курс / Тип', 'Курс / Тип')}
-              </p>
-              <p className="mt-2 text-lg font-bold text-stone-900">
-                {student?.grade || 1} {localizeUi(student?.language, 'курс', 'курс')}
-              </p>
-              <p className="mt-1 text-sm text-stone-500">{accountTypeLabel(student?.language, student?.accountType)}</p>
-            </div>
-            <div className="rounded-2xl border border-stone-200 bg-white p-4">
-              <p className="text-xs uppercase tracking-wide text-stone-400">
-                {localizeUi(student?.language, 'Предметы', 'Предметтер')}
-              </p>
-              <p className="mt-2 text-lg font-bold text-stone-900">{subjectCount}</p>
-              <p className="mt-1 text-sm text-stone-500">
-                {localizeUi(student?.language, 'Готово к тестам', 'Тестке даяр')}: {readySubjects}
+              <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-stone-400">
+                <BarChart3 className="h-4 w-4" />
+                <span>{localizeUi(student?.language, 'Всего тестов', 'Бардык тесттер')}</span>
+              </div>
+              <p className="mt-2 text-2xl font-black text-stone-900">{stats.totalTests}</p>
+              <p className="mt-1 text-xs text-stone-500">
+                {localizeUi(student?.language, 'Предметных', 'Предметтик')}: {stats.mainTests} · {localizeUi(student?.language, 'Пробных', 'Сынамык')}: {stats.trialTests}
               </p>
             </div>
+
             <div className="rounded-2xl border border-stone-200 bg-white p-4">
-              <p className="text-xs uppercase tracking-wide text-stone-400">
-                {localizeUi(student?.language, 'Варианты тестов', 'Тест варианттары')}
+              <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-stone-400">
+                <CheckCircle2 className="h-4 w-4" />
+                <span>{localizeUi(student?.language, 'Средний результат', 'Орточо жыйынтык')}</span>
+              </div>
+              <p className="mt-2 text-2xl font-black text-stone-900">{stats.averageScore}%</p>
+              <p className="mt-1 text-xs text-stone-500">
+                {localizeUi(student?.language, 'Правильных ответов', 'Туура жооптор')}: {stats.totalCorrect}/{stats.totalQuestions}
               </p>
-              <p className="mt-2 text-lg font-bold text-stone-900">{maxPartCount || 20}</p>
-              <p className="mt-1 text-sm text-stone-500">
-                {localizeUi(student?.language, 'По каждому предмету', 'Ар бир предмет боюнча')}
+            </div>
+
+            <div className="rounded-2xl border border-stone-200 bg-white p-4">
+              <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-stone-400">
+                <Trophy className="h-4 w-4" />
+                <span>{localizeUi(student?.language, 'Лучший результат', 'Эң мыкты жыйынтык')}</span>
+              </div>
+              <p className="mt-2 text-2xl font-black text-stone-900">{stats.bestScore}%</p>
+              <p className="mt-1 text-xs text-stone-500">
+                {localizeUi(student?.language, 'Точность ответов', 'Жооп тактыгы')}: {stats.accuracyPercent}%
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-stone-200 bg-white p-4">
+              <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-stone-400">
+                <CalendarClock className="h-4 w-4" />
+                <span>{localizeUi(student?.language, 'Последняя попытка', 'Акыркы аракет')}</span>
+              </div>
+              <p className="mt-2 text-base font-bold text-stone-900">
+                {stats.lastAttempt
+                  ? formatDateTime(stats.lastAttempt.submitted_at, student?.language)
+                  : localizeUi(student?.language, 'Пока нет', 'Азырынча жок')}
+              </p>
+              <p className="mt-1 text-xs text-stone-500">
+                {localizeUi(student?.language, 'Курс', 'Курс')}: {student?.grade || 1} · {accountTypeLabel(student?.language, student?.accountType)}
               </p>
             </div>
           </section>
 
-          <section className="rounded-2xl border border-stone-200 bg-white p-4 sm:p-5">
-            <div className="mb-4">
-              <h2 className="text-lg font-bold text-stone-900">
-                {localizeUi(student?.language, 'Предметы по вашему аккаунту', 'Сиздин аккаунттагы предметтер')}
-              </h2>
-              <p className="text-sm text-stone-500">
-                {localizeUi(
-                  student?.language,
-                  'Выберите предмет: внутри доступны видеоуроки и предметные тесты.',
-                  'Предметти тандаңыз: ичинде видео сабактар жана предметтик тесттер бар.',
-                )}
+          <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-2">
+            <div className="rounded-2xl border border-stone-200 bg-white p-4">
+              <p className="text-xs uppercase tracking-wide text-stone-400">
+                {localizeUi(student?.language, 'Профиль', 'Профиль')}
               </p>
+              <p className="mt-2 text-lg font-bold text-stone-900">{student?.fullName || '—'}</p>
+              <p className="mt-1 text-sm text-stone-500">@{student?.username}</p>
             </div>
 
-            {subjects.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-stone-300 p-6 text-sm text-stone-500">
-                {localizeUi(student?.language, 'Для вашего аккаунта пока нет предметов.', 'Сиздин аккаунт үчүн азырынча предметтер жок.')}
-              </div>
-            ) : (
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                {subjects.map((subject) => (
-                  <div key={subject.id} className="rounded-xl border border-stone-200 p-4">
-                    <p className="text-base font-bold text-stone-900">{subject.title}</p>
-                    <p className="mt-1 text-xs text-stone-500">
-                      {localizeUi(student?.language, 'Вопросов в базе', 'Базадагы суроолор')}: {subject.available_total}
-                    </p>
-                    <div className="mt-3 flex items-center gap-2 text-xs text-stone-500">
-                      <PlayCircle className="h-4 w-4" />
-                      <span>{localizeUi(student?.language, 'Видеоуроки', 'Видео сабактар')}</span>
-                      <span className="rounded-full bg-stone-100 px-2 py-0.5 text-[11px]">
-                        {(subject.video_lesson_count || 0) > 0
-                          ? `${subject.playable_video_lesson_count || 0}/${subject.video_lesson_count || 0}`
-                          : localizeUi(student?.language, 'пусто', 'бош')}
-                      </span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => navigate(`/select/main?subject=${encodeURIComponent(subject.id)}`)}
-                      className="mt-4 inline-flex items-center gap-2 rounded-lg bg-stone-900 px-3 py-2 text-xs font-semibold text-white hover:bg-black"
-                    >
-                      <FileText className="h-4 w-4" />
-                      {localizeUi(student?.language, 'Открыть тесты', 'Тесттерди ачуу')}
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
+            <div className="rounded-2xl border border-stone-200 bg-white p-4">
+              <p className="text-xs uppercase tracking-wide text-stone-400">
+                {localizeUi(student?.language, 'Сынамык тест', 'Сынамык тест')}
+              </p>
+              <p className="mt-2 text-lg font-bold text-stone-900">
+                {trialNode?.status === 'ready'
+                  ? localizeUi(student?.language, 'Доступен', 'Жеткиликтүү')
+                  : localizeUi(student?.language, 'Пока закрыт', 'Азырынча жабык')}
+              </p>
+              <p className="mt-1 text-sm text-stone-500">
+                {localizeUi(student?.language, 'Полная проверка знаний', 'Толук билим текшерүү')}
+              </p>
+            </div>
+          </section>
+
+          <section className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4 sm:p-5">
+            <h2 className="text-base font-bold text-emerald-900 sm:text-lg">
+              {localizeUi(student?.language, 'Предметы перенесены в левое меню', 'Предметтер сол менюга көчүрүлдү')}
+            </h2>
+            <p className="mt-1 text-sm text-emerald-800/90">
+              {localizeUi(
+                student?.language,
+                'Чтобы открыть конкретный предмет, используйте раздел «Предметы» в зеленой левой панели.',
+                'Так предметти ачуу үчүн жашыл сол панелдеги «Предметтер» бөлүгүн колдонуңуз.',
+              )}
+            </p>
           </section>
 
           <section className="grid gap-3 md:grid-cols-2">
@@ -207,7 +266,7 @@ export default function DashboardPage() {
               </button>
             ) : (
               <div className="flex items-center gap-3 rounded-2xl border border-dashed border-stone-300 bg-white p-4 text-left">
-                <BookOpen className="h-5 w-5 text-stone-400" />
+                <FlaskConical className="h-5 w-5 text-stone-400" />
                 <div>
                   <p className="font-semibold text-stone-700">{localizeUi(student?.language, 'Сынамык тест', 'Сынамык тест')}</p>
                   <p className="text-xs text-stone-500">
