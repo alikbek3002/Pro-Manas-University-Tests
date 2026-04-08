@@ -625,7 +625,12 @@ async function authenticateStudent(req, res, next) {
       .eq('id', payload.sub)
       .maybeSingle();
 
-    if (error || !student) {
+    if (error) {
+      console.error('Student auth lookup error:', error);
+      return res.status(500).json({ error: 'Student lookup failed' });
+    }
+
+    if (!student) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
@@ -698,7 +703,12 @@ router.post('/login', async (req, res) => {
       .eq('username', normalizedUsername)
       .maybeSingle();
 
-    if (error || !student) {
+    if (error) {
+      console.error('Student login lookup error:', error);
+      return res.status(500).json({ error: 'Ошибка поиска ученика' });
+    }
+
+    if (!student) {
       return res.status(401).json({ error: 'Неверный логин или пароль' });
     }
 
