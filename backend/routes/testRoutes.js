@@ -1137,7 +1137,13 @@ router.post('/generate', async (req, res) => {
         return res.status(500).json({ error: 'Failed to fetch subject questions' });
       }
 
-      pool = subjectQuestions || [];
+      let fetchedPool = subjectQuestions || [];
+      // Изолируем вопросы Манаса от других направлений (например, меда)
+      if (program.account_type !== 'manas') {
+        fetchedPool = fetchedPool.filter(q => !(q.explanation || '').includes('[MANAS_ONLY]'));
+      }
+
+      pool = fetchedPool;
     }
 
     if (pool.length < QUESTIONS_PER_TEST) {
