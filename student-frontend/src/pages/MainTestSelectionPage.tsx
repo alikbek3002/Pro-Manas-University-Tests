@@ -127,10 +127,8 @@ export default function MainTestSelectionPage() {
       : null);
 
   const selectedLine = selectedSubject?.lines.find((line) => line.grade === selectedGrade) ?? null;
-  const partCount = selectedLine?.part_count ?? 20;
-  const partQuestionCount =
-    selectedLine?.part_question_count ??
-    Math.floor(Number(selectedLine?.available || 0) / Math.max(partCount, 1));
+  const partCount = selectedLine?.part_count ?? 0;
+  const partQuestionCount = selectedLine?.part_question_count ?? 30;
   const partNumbers = Array.from({ length: partCount }, (_, index) => index + 1);
   const requestedSubject = searchParams.get('subject');
   const selectedSubjectCode = selectedSubject?.id || '';

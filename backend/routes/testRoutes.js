@@ -26,8 +26,8 @@ const {
 
 const router = express.Router();
 
-const SUBJECT_TEST_PARTS = 20;
-const QUESTIONS_PER_TEST = 20;
+const QUESTIONS_PER_TEST = 30;
+const MAX_PARTS_UPPER_BOUND = 100;
 const TOKEN_REFRESH_THRESHOLD_SECONDS = 300;
 const VIDEO_GRANT_TTL_SECONDS = Math.max(60, Number(process.env.VIDEO_GRANT_TTL_SECONDS) || 1800);
 const VIDEO_SEGMENT_GRANT_TTL_SECONDS = Math.max(30, Number(process.env.VIDEO_SEGMENT_GRANT_TTL_SECONDS) || 300);
@@ -925,6 +925,7 @@ router.get('/available', async (req, res) => {
     const items = programSubjects.map((subject) => {
       const available = Number(questionCounts[subject.code] || 0);
       const videoStats = videoCounts.get(subject.code) || createEmptyVideoStats();
+      const dynamicPartCount = available >= QUESTIONS_PER_TEST ? Math.ceil(available / QUESTIONS_PER_TEST) : 0;
       return {
         id: subject.code,
         title: subject.title,
@@ -938,10 +939,10 @@ router.get('/available', async (req, res) => {
             grade: 1,
             required: QUESTIONS_PER_TEST,
             available,
-            label: `Тесты 1-${SUBJECT_TEST_PARTS} (по ${QUESTIONS_PER_TEST} вопросов)`,
-            part_count: SUBJECT_TEST_PARTS,
+            label: `Тесты 1-${dynamicPartCount} (по ${QUESTIONS_PER_TEST} вопросов)`,
+            part_count: dynamicPartCount,
             part_question_count: QUESTIONS_PER_TEST,
-            usable_question_total: available,
+            usable_question_total: dynamicPartCount * QUESTIONS_PER_TEST,
           },
         ],
       };
@@ -1083,8 +1084,8 @@ router.post('/generate', async (req, res) => {
       return res.status(400).json({ error: 'Invalid subject for MAIN test' });
     }
 
-    if (!Number.isInteger(selectedPart) || selectedPart < 1 || selectedPart > SUBJECT_TEST_PARTS) {
-      return res.status(400).json({ error: `part must be integer from 1 to ${SUBJECT_TEST_PARTS}` });
+    if (!Number.isInteger(selectedPart) || selectedPart < 1 || selectedPart > MAX_PARTS_UPPER_BOUND) {
+      return res.status(400).json({ error: `part must be integer from 1 to ${MAX_PARTS_UPPER_BOUND}` });
     }
 
     const program = await getPrimaryProgram(req.student.id);
@@ -1109,46 +1110,31 @@ router.post('/generate', async (req, res) => {
       part: selectedPart,
     });
 
-    const { data: templateQuestions, error: templateQuestionsError } = await supabase
+    // Fast offset-based query: load only the slice needed for this part
+    const offset = (selectedPart - 1) * QUESTIONS_PER_TEST;
+
+    const { data: subjectQuestions, error: subjectQuestionsError } = await supabase
       .from(subjectMeta.tableName)
       .select('id, subject_id, template_id, question_text, options, explanation, image_url, created_at')
       .eq('subject_id', subjectMeta.id)
-      .eq('template_id', template.id)
-      .order('created_at', { ascending: false })
-      .limit(400);
+      .order('created_at', { ascending: true })
+      .range(offset, offset + QUESTIONS_PER_TEST - 1);
 
-    if (templateQuestionsError) {
-      console.error('Fetch template questions error:', templateQuestionsError);
-      return res.status(500).json({ error: 'Failed to fetch template questions' });
+    if (subjectQuestionsError) {
+      console.error('Fetch subject questions error:', subjectQuestionsError);
+      return res.status(500).json({ error: 'Failed to fetch subject questions' });
     }
 
-    let pool = templateQuestions || [];
+    let pool = subjectQuestions || [];
 
-    if (pool.length < QUESTIONS_PER_TEST) {
-      const { data: subjectQuestions, error: subjectQuestionsError } = await supabase
-        .from(subjectMeta.tableName)
-        .select('id, subject_id, template_id, question_text, options, explanation, image_url, created_at')
-        .eq('subject_id', subjectMeta.id)
-        .order('created_at', { ascending: false })
-        .limit(1000);
-
-      if (subjectQuestionsError) {
-        console.error('Fetch subject questions error:', subjectQuestionsError);
-        return res.status(500).json({ error: 'Failed to fetch subject questions' });
-      }
-
-      let fetchedPool = subjectQuestions || [];
-      // Изолируем вопросы Манаса от других направлений (например, меда)
-      if (program.account_type !== 'manas') {
-        fetchedPool = fetchedPool.filter(q => !(q.explanation || '').includes('[MANAS_ONLY]'));
-      }
-
-      pool = fetchedPool;
+    // Изолируем вопросы Манаса от других направлений (например, меда)
+    if (program.account_type !== 'manas') {
+      pool = pool.filter(q => !(q.explanation || '').includes('[MANAS_ONLY]'));
     }
 
-    if (pool.length < QUESTIONS_PER_TEST) {
+    if (pool.length === 0) {
       return res.status(409).json({
-        error: `Недостаточно вопросов по предмету ${subjectMeta.title}: нужно ${QUESTIONS_PER_TEST}, найдено ${pool.length}`,
+        error: `Недостаточно вопросов по предмету ${subjectMeta.title} для части ${selectedPart}`,
       });
     }
 
