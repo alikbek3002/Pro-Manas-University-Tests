@@ -100,17 +100,23 @@ export default function DashboardPage() {
     const trend: 'up' | 'down' | 'neutral' = recentAvg >= averageScore ? 'up' : 'down';
     const trendDiff = Math.abs(recentAvg - averageScore);
 
-    // Barchart data (last 6 tests)
-    const lastSix = [...history].sort((a, b) => new Date(b.submitted_at).getTime() - new Date(a.submitted_at).getTime()).slice(0, 6).reverse();
-    const chartData = lastSix.map(h => ({
-      label: formatShortDate(h.submitted_at, student?.language),
-      score: h.score_percent
-    }));
+    // Barchart data (Average per subject)
+    const subjectStats: Record<string, { total: number; count: number }> = {};
+    history.forEach(h => {
+      const subj = h.subject || 'unknown';
+      if (!subjectStats[subj]) subjectStats[subj] = { total: 0, count: 0 };
+      subjectStats[subj].total += h.score_percent;
+      subjectStats[subj].count += 1;
+    });
 
-    // Pad chart data if fewer than 6
-    while (chartData.length > 0 && chartData.length < 6) {
-      chartData.unshift({ label: '...', score: 0 });
-    }
+    const chartData = Object.entries(subjectStats).map(([subj, acc]) => {
+      const avg = Math.round(acc.total / acc.count);
+      return {
+        label: (SUBJECT_MAP[subj]?.label || subj).substring(0, 8) + '...', // Short label for X-axis
+        fullLabel: SUBJECT_MAP[subj]?.label || subj,
+        score: avg
+      };
+    }).sort((a, b) => b.score - a.score).slice(0, 6); // Max 6 bars for UI fit
 
     return {
       totalTests,
@@ -196,29 +202,39 @@ export default function DashboardPage() {
           <div className="col-span-1 lg:col-span-2 flex flex-col rounded-2xl border border-stone-200 bg-white p-5 sm:p-6 shadow-sm">
             <div className="flex items-center justify-between mb-8">
               <div>
-                <h3 className="text-base font-bold text-stone-900">{localizeUi(student?.language, 'Динамика результатов', 'Жыйынтыктардын динамикасы')}</h3>
-                <p className="mt-1 text-sm text-stone-500">{localizeUi(student?.language, 'Последние 6 тестов', 'Акыркы 6 тест')}</p>
+                <h3 className="text-base font-bold text-stone-900">{localizeUi(student?.language, 'Статистика по предметам', 'Предметтер боюнча статистика')}</h3>
+                <p className="mt-1 text-sm text-stone-500">{localizeUi(student?.language, 'Средний балл по каждому предмету', 'Ар бир предмет боюнча орточо балл')}</p>
               </div>
             </div>
             
             <div className="mt-auto h-48 sm:h-64 flex items-end gap-2 sm:gap-6 pt-4">
-              {stats.chartData.length > 0 ? stats.chartData.map((data, i) => (
-                <div key={i} className="group relative flex h-full flex-1 flex-col justify-end">
-                  {/* Tooltip on hover */}
-                  <div className="absolute -top-10 left-1/2 -translate-x-1/2 opacity-0 transition-opacity group-hover:opacity-100 z-10 rounded bg-stone-900 px-2 py-1 text-xs text-white whitespace-nowrap pointer-events-none">
-                    {data.score}%
+              {stats.chartData.length > 0 ? stats.chartData.map((data, i) => {
+                const getBgColor = (score: number) => {
+                  if (score < 50) return 'bg-red-400';
+                  if (score < 80) return 'bg-amber-400';
+                  return 'bg-emerald-500';
+                };
+                
+                return (
+                  <div key={i} className="group relative flex h-full flex-1 flex-col justify-end">
+                    <div className="absolute -top-12 left-1/2 -translate-x-1/2 opacity-0 transition-opacity group-hover:opacity-100 z-10 rounded bg-stone-900 px-3 py-1 flex flex-col items-center shadow-lg pointer-events-none">
+                      <span className="text-[10px] text-stone-300 font-medium whitespace-nowrap mb-0.5">{data.fullLabel}</span>
+                      <span className="text-sm font-bold text-white leading-none">{data.score}%</span>
+                      {/* Triangle pointer */}
+                      <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 !border-solid border-t-stone-900 border-x-transparent border-b-transparent border-t-4 border-x-4 border-b-0 w-0 h-0" />
+                    </div>
+                    <div 
+                      className={`w-full rounded-t-md transition-all duration-300 hover:brightness-110 shadow-sm ${getBgColor(data.score)}`}
+                      style={{ height: `${Math.max(4, data.score)}%` }} // Minimum height so it's visible even at 0
+                    />
+                    <div className="mt-3 text-center text-[10px] font-medium text-stone-500 truncate px-1">
+                      {data.label.replace('...', '')}
+                    </div>
                   </div>
-                  <div 
-                    className={`w-full rounded-t-md transition-all duration-500 hover:opacity-80 ${i === stats.chartData.length - 1 ? 'bg-emerald-500' : 'bg-emerald-200/60'}`}
-                    style={{ height: `${Math.max(4, data.score)}%` }} // Minimum height so it's visible even at 0
-                  />
-                  <div className="mt-3 text-center text-xs font-medium text-stone-500">
-                    {data.label}
-                  </div>
-                </div>
-              )) : (
+                );
+              }) : (
                 <div className="w-full h-full flex items-center justify-center text-stone-400 text-sm">
-                  {localizeUi(student?.language, 'Нет данных для графика', 'График үчүн маалымат жок')}
+                  {localizeUi(student?.language, 'Пройдите тесты для отображения статистики', 'Статистиканы көрүү үчүн тесттеринен өтүңүз')}
                 </div>
               )}
             </div>
@@ -243,7 +259,7 @@ export default function DashboardPage() {
                     />
                     {/* Foreground Circle */}
                     <path
-                      className="text-emerald-500"
+                      className={stats.accuracyPercent < 50 ? 'text-red-500' : stats.accuracyPercent < 80 ? 'text-amber-500' : 'text-emerald-500'}
                       strokeDasharray={`${stats.accuracyPercent}, 100`}
                       d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                       fill="none"
