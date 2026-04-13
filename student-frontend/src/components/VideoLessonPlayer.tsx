@@ -30,6 +30,13 @@ interface FullscreenCapableDocument extends Document {
   webkitFullscreenElement?: Element;
 }
 
+interface FullscreenCapableVideo extends HTMLVideoElement {
+  webkitEnterFullscreen?: () => void;
+  webkitExitFullscreen?: () => void;
+  webkitSupportsFullscreen?: boolean;
+  webkitDisplayingFullscreen?: boolean;
+}
+
 function getPlayableSources(lesson: VideoLesson | null): string[] {
   if (!lesson) return [];
 
@@ -306,12 +313,15 @@ export default function VideoLessonPlayer({
 
   const toggleFullscreen = useCallback(async () => {
     const root = containerRef.current as FullscreenCapableElement | null;
+    const video = videoRef.current as FullscreenCapableVideo | null;
     const doc = document as FullscreenCapableDocument;
 
     if (!root) return;
 
     try {
       const activeFullscreen = doc.fullscreenElement || doc.webkitFullscreenElement;
+
+      // If already in fullscreen — exit
       if (activeFullscreen) {
         if (doc.exitFullscreen) {
           await doc.exitFullscreen();
@@ -321,31 +331,68 @@ export default function VideoLessonPlayer({
         return;
       }
 
+      // iOS video native fullscreen check
+      if (video?.webkitDisplayingFullscreen) {
+        video.webkitExitFullscreen?.();
+        return;
+      }
+
+      // Try standard Fullscreen API on the container first
       if (root.requestFullscreen) {
         await root.requestFullscreen();
-      } else if (root.webkitRequestFullscreen) {
+        return;
+      }
+      if (root.webkitRequestFullscreen) {
         await root.webkitRequestFullscreen();
+        return;
+      }
+
+      // Fallback: iOS Safari — use native video fullscreen
+      if (video?.webkitSupportsFullscreen && video.webkitEnterFullscreen) {
+        video.webkitEnterFullscreen();
       }
     } catch {
-      // Fullscreen may fail on unsupported devices.
+      // Container fullscreen failed (likely iOS), try native video fullscreen
+      if (video?.webkitSupportsFullscreen && video.webkitEnterFullscreen) {
+        try {
+          video.webkitEnterFullscreen();
+        } catch {
+          // Fullscreen not supported at all
+        }
+      }
     }
   }, []);
 
   useEffect(() => {
     const doc = document as FullscreenCapableDocument;
+    const video = videoRef.current as FullscreenCapableVideo | null;
 
     const syncFullscreenState = () => {
       const root = containerRef.current;
       const activeFullscreen = doc.fullscreenElement || doc.webkitFullscreenElement;
-      setIsFullscreen(Boolean(root && activeFullscreen === root));
+      const isVideoNativeFs = video?.webkitDisplayingFullscreen === true;
+      setIsFullscreen(Boolean((root && activeFullscreen === root) || isVideoNativeFs));
     };
 
+    // Standard fullscreen events
     document.addEventListener('fullscreenchange', syncFullscreenState);
     document.addEventListener('webkitfullscreenchange', syncFullscreenState as EventListener);
+
+    // iOS native video fullscreen events
+    const handleBeginFS = () => setIsFullscreen(true);
+    const handleEndFS = () => setIsFullscreen(false);
+    if (video) {
+      video.addEventListener('webkitbeginfullscreen', handleBeginFS);
+      video.addEventListener('webkitendfullscreen', handleEndFS);
+    }
 
     return () => {
       document.removeEventListener('fullscreenchange', syncFullscreenState);
       document.removeEventListener('webkitfullscreenchange', syncFullscreenState as EventListener);
+      if (video) {
+        video.removeEventListener('webkitbeginfullscreen', handleBeginFS);
+        video.removeEventListener('webkitendfullscreen', handleEndFS);
+      }
     };
   }, []);
 
