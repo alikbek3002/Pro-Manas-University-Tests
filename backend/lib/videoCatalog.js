@@ -463,21 +463,130 @@ function getSubjectTitle(subjectCode) {
   return SUBJECTS[subjectCode]?.titleRu || subjectCode;
 }
 
+async function insertSingleVideoLesson(lesson) {
+  const pool = getVideoPool();
+  if (!pool) {
+    throw new Error('Railway video database is not configured');
+  }
+
+  const id = lesson.id || uuidv4();
+  const values = [
+    id,
+    lesson.programCode,
+    lesson.programTitle,
+    lesson.accountType,
+    lesson.manasTrack || null,
+    lesson.subjectCode,
+    lesson.subjectTitle,
+    lesson.lessonKey,
+    lesson.lessonNo || null,
+    lesson.sortOrder || 0,
+    lesson.lessonTitle,
+    lesson.sourceFilename,
+    lesson.sourceRelativePath,
+    lesson.sourceExtension,
+    lesson.sourceSizeBytes || 0,
+    lesson.streamType || 'mp4',
+    lesson.storageProvider || 'r2',
+    lesson.playbackUrl || null,
+    lesson.hlsUrl || null,
+    lesson.mp4Url || null,
+    lesson.posterUrl || null,
+    lesson.durationSeconds || null,
+    lesson.isPublished !== false,
+    JSON.stringify(lesson.meta || {}),
+  ];
+
+  const placeholders = values.map((_, i) => `$${i + 1}`).join(', ');
+
+  const result = await pool.query(
+    `INSERT INTO public.${VIDEO_TABLE_NAME} (${INSERT_COLUMNS.join(', ')})
+     VALUES (${placeholders})
+     ON CONFLICT (program_code, subject_code, lesson_key)
+     DO UPDATE SET
+       lesson_title = EXCLUDED.lesson_title,
+       source_filename = EXCLUDED.source_filename,
+       source_relative_path = EXCLUDED.source_relative_path,
+       source_extension = EXCLUDED.source_extension,
+       source_size_bytes = EXCLUDED.source_size_bytes,
+       stream_type = EXCLUDED.stream_type,
+       storage_provider = EXCLUDED.storage_provider,
+       playback_url = EXCLUDED.playback_url,
+       hls_url = EXCLUDED.hls_url,
+       mp4_url = EXCLUDED.mp4_url,
+       poster_url = EXCLUDED.poster_url,
+       duration_seconds = EXCLUDED.duration_seconds,
+       is_published = EXCLUDED.is_published,
+       meta = EXCLUDED.meta,
+       updated_at = timezone('utc'::text, now())
+     RETURNING *`,
+    values,
+  );
+
+  return buildLessonResponse(result.rows[0]);
+}
+
+async function deleteVideoLessonById(lessonId) {
+  const pool = getVideoPool();
+  if (!pool) {
+    throw new Error('Railway video database is not configured');
+  }
+
+  const result = await pool.query(
+    `DELETE FROM public.${VIDEO_TABLE_NAME} WHERE id = $1 RETURNING *`,
+    [lessonId],
+  );
+
+  return result.rows[0] || null;
+}
+
+async function findVideoLessonById(lessonId) {
+  const pool = getVideoPool();
+  if (!pool || !lessonId) return null;
+
+  const result = await pool.query(
+    `SELECT * FROM public.${VIDEO_TABLE_NAME} WHERE id = $1 LIMIT 1`,
+    [lessonId],
+  );
+
+  return result.rows[0] || null;
+}
+
+async function getNextSortOrder(programCode, subjectCode) {
+  const pool = getVideoPool();
+  if (!pool) return 1;
+
+  const result = await pool.query(
+    `SELECT COALESCE(MAX(sort_order), 0) + 1 AS next_order
+     FROM public.${VIDEO_TABLE_NAME}
+     WHERE program_code = $1 AND subject_code = $2`,
+    [programCode, subjectCode],
+  );
+
+  return result.rows[0]?.next_order || 1;
+}
+
 module.exports = {
   MANAS_PROGRAM_META,
   VIDEO_TABLE_NAME,
+  buildLessonResponse,
   buildPublicVideoUrl,
   closeVideoPool,
+  deleteVideoLessonById,
   ensureVideoCatalogSchema,
   fetchAdminVideoCatalog,
   fetchVideoLessonCounts,
   fetchVideoLessonsForProgram,
+  findVideoLessonById,
   findVideoLessonForProgram,
+  getNextSortOrder,
   getProgramMeta,
   getSubjectTitle,
   getVideoPool,
+  insertSingleVideoLesson,
   isLocalVideoPreviewEnabled,
   isVideoDbConfigured,
   replaceVideoLessonsForPrograms,
   resolveAbsoluteVideoPath,
+  toR2ObjectKey,
 };

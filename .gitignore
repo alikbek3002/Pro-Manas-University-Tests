@@ -19,6 +19,18 @@ dist
 *.webm
 Материалы Видеоуроки/**/*.ts
 
+# Images / photos (do not commit)
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.webp
+*.bmp
+*.tiff
+*.heic
+backend/scripts/physics_images/
+backend/tmp_images/
+
 # Local-only artifacts
 coverage
 .cache

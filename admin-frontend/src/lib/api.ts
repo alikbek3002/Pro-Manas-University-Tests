@@ -354,3 +354,69 @@ export async function uploadImage(file: File): Promise<{ imageUrl: string }> {
 
   return data;
 }
+
+export interface UploadVideoPayload {
+  programCode: string;
+  subjectCode: string;
+  lessonTitle: string;
+  lessonNo?: number;
+}
+
+export async function uploadVideo(
+  file: File,
+  payload: UploadVideoPayload,
+  onProgress?: (percent: number) => void,
+): Promise<{ lesson: VideoCatalogLesson }> {
+  const token = useAdminAuthStore.getState().token;
+  if (!token) {
+    throw new Error('Не выполнен вход администратора');
+  }
+
+  const formData = new FormData();
+  formData.append('video', file);
+  formData.append('programCode', payload.programCode);
+  formData.append('subjectCode', payload.subjectCode);
+  formData.append('lessonTitle', payload.lessonTitle);
+  if (payload.lessonNo !== undefined) {
+    formData.append('lessonNo', String(payload.lessonNo));
+  }
+
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', `${API_BASE_URL}/admin/videos/upload`);
+    xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+
+    xhr.upload.addEventListener('progress', (event) => {
+      if (event.lengthComputable && onProgress) {
+        onProgress(Math.round((event.loaded / event.total) * 100));
+      }
+    });
+
+    xhr.addEventListener('load', () => {
+      try {
+        const data = JSON.parse(xhr.responseText);
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve(data);
+        } else {
+          reject(new Error(data?.error || `Upload failed with status ${xhr.status}`));
+        }
+      } catch {
+        reject(new Error(`Upload failed with status ${xhr.status}`));
+      }
+    });
+
+    xhr.addEventListener('error', () => {
+      reject(new Error('Сетевая ошибка при загрузке видео'));
+    });
+
+    xhr.addEventListener('abort', () => {
+      reject(new Error('Загрузка отменена'));
+    });
+
+    xhr.send(formData);
+  });
+}
+
+export async function deleteVideo(lessonId: string) {
+  return request<null>(`/admin/videos/${lessonId}`, 'DELETE');
+}

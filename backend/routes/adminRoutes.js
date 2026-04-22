@@ -1,5 +1,8 @@
 const express = require('express');
 const crypto = require('crypto');
+const os = require('os');
+const { createReadStream } = require('fs');
+const { unlink } = require('fs/promises');
 const multer = require('multer');
 
 const router = express.Router();
@@ -9,10 +12,40 @@ const {
   canonicalizeSubjectCode,
   getQuestionTableBySubjectCode,
   getAllQuestionTables,
+  SUBJECTS,
 } = require('../lib/universitySubjects');
-const { fetchAdminVideoCatalog } = require('../lib/videoCatalog');
+const {
+  fetchAdminVideoCatalog,
+  insertSingleVideoLesson,
+  deleteVideoLessonById,
+  findVideoLessonById,
+  getNextSortOrder,
+  getProgramMeta,
+  getSubjectTitle,
+  MANAS_PROGRAM_META,
+  toR2ObjectKey,
+  isVideoDbConfigured,
+} = require('../lib/videoCatalog');
+const { uploadVideoToR2, deleteVideoFromR2, isR2Configured } = require('../lib/videoUploader');
 
-const upload = multer({ storage: multer.memoryStorage() });
+const imageUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 20 * 1024 * 1024 }, // 20 MB for images
+});
+
+const videoUpload = multer({
+  storage: multer.diskStorage({
+    destination: os.tmpdir(),
+    filename: (_req, file, cb) => {
+      const ext = file.originalname.split('.').pop() || 'mp4';
+      cb(null, `promanas-video-${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`);
+    },
+  }),
+  limits: { fileSize: 2 * 1024 * 1024 * 1024 }, // 2 GB max
+});
+
+// keep `upload` as alias for image routes that were using memoryStorage
+const upload = imageUpload;
 
 const ACCOUNT_TYPES = ['ort', 'medical', 'manas'];
 const MANAS_TRACKS = ['all_subjects', 'humanities', 'exact_sciences'];
@@ -1126,6 +1159,136 @@ router.get('/videos/catalog', requireAdmin, async (_req, res) => {
   } catch (error) {
     console.error('Admin video catalog error:', error);
     return res.status(500).json({ error: 'Failed to load video catalog' });
+  }
+});
+
+router.post('/videos/upload', requireAdmin, videoUpload.single('video'), async (req, res) => {
+  const tempPath = req.file?.path || null;
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'Видеофайл не предоставлен' });
+    }
+
+    if (!isR2Configured()) {
+      return res.status(503).json({ error: 'Cloudflare R2 не настроен' });
+    }
+
+    if (!isVideoDbConfigured()) {
+      return res.status(503).json({ error: 'База данных видеокаталога не настроена' });
+    }
+
+    const {
+      programCode: rawProgramCode,
+      subjectCode: rawSubjectCode,
+      lessonTitle: rawLessonTitle,
+      lessonNo: rawLessonNo,
+    } = req.body || {};
+
+    const programCode = String(rawProgramCode || '').trim();
+    const subjectCode = String(rawSubjectCode || '').trim();
+    const lessonTitle = String(rawLessonTitle || '').trim();
+
+    if (!programCode) {
+      return res.status(400).json({ error: 'programCode обязателен' });
+    }
+    if (!subjectCode) {
+      return res.status(400).json({ error: 'subjectCode обязателен' });
+    }
+    if (!lessonTitle) {
+      return res.status(400).json({ error: 'lessonTitle обязателен' });
+    }
+
+    const programMeta = MANAS_PROGRAM_META[programCode];
+    if (!programMeta) {
+      return res.status(400).json({ error: `Программа ${programCode} не найдена` });
+    }
+
+    const subjectTitle = getSubjectTitle(subjectCode);
+
+    const originalName = req.file.originalname;
+    const ext = originalName.split('.').pop()?.toLowerCase() || 'mp4';
+    const safeFilename = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+    const objectKey = `${programCode}/${subjectCode}/${safeFilename}`;
+    const fileSizeBytes = req.file.size;
+
+    console.log(`[Video Upload] Uploading ${originalName} (${(fileSizeBytes / 1024 / 1024).toFixed(1)} MB) → R2 key: ${objectKey}`);
+
+    const fileStream = createReadStream(tempPath);
+    const uploadResult = await uploadVideoToR2(fileStream, objectKey, req.file.mimetype);
+
+    const sortOrder = await getNextSortOrder(programCode, subjectCode);
+    const lessonNo = rawLessonNo ? parseInt(rawLessonNo, 10) : sortOrder;
+    const lessonKey = `${subjectCode}_lesson_${sortOrder}_${Date.now()}`;
+
+    const lesson = await insertSingleVideoLesson({
+      programCode,
+      programTitle: programMeta.title,
+      accountType: programMeta.accountType,
+      manasTrack: programMeta.manasTrack,
+      subjectCode,
+      subjectTitle,
+      lessonKey,
+      lessonNo,
+      sortOrder,
+      lessonTitle,
+      sourceFilename: originalName,
+      sourceRelativePath: objectKey,
+      sourceExtension: ext,
+      sourceSizeBytes: fileSizeBytes,
+      streamType: 'mp4',
+      storageProvider: 'r2',
+      playbackUrl: uploadResult.publicUrl,
+      mp4Url: uploadResult.publicUrl,
+      isPublished: true,
+      meta: { uploadedBy: req.admin?.username || 'admin', uploadedAt: new Date().toISOString() },
+    });
+
+    console.log(`[Video Upload] Success: ${lesson.id} — ${lessonTitle}`);
+
+    return res.status(201).json({ lesson });
+  } catch (error) {
+    console.error('Video upload error:', error);
+    return res.status(500).json({ error: error.message || 'Ошибка загрузки видео' });
+  } finally {
+    if (tempPath) {
+      unlink(tempPath).catch((err) => console.error('[Video Upload] Temp file cleanup failed:', err));
+    }
+  }
+});
+
+router.delete('/videos/:id', requireAdmin, async (req, res) => {
+  try {
+    const lessonId = String(req.params.id || '').trim();
+    if (!lessonId) {
+      return res.status(400).json({ error: 'ID видеоурока обязателен' });
+    }
+
+    const existingRow = await findVideoLessonById(lessonId);
+    if (!existingRow) {
+      return res.status(404).json({ error: 'Видеоурок не найден' });
+    }
+
+    // Try to delete from R2 if it's stored there
+    if (existingRow.storage_provider === 'r2' && existingRow.source_relative_path) {
+      const r2Key = toR2ObjectKey(existingRow.source_relative_path);
+      if (r2Key && isR2Configured()) {
+        try {
+          await deleteVideoFromR2(r2Key);
+          console.log(`[Video Delete] Deleted R2 object: ${r2Key}`);
+        } catch (r2Error) {
+          console.error(`[Video Delete] R2 delete failed for ${r2Key}:`, r2Error);
+          // Continue with DB delete even if R2 fails
+        }
+      }
+    }
+
+    await deleteVideoLessonById(lessonId);
+    console.log(`[Video Delete] Deleted video lesson: ${lessonId}`);
+
+    return res.status(204).send();
+  } catch (error) {
+    console.error('Video delete error:', error);
+    return res.status(500).json({ error: error.message || 'Ошибка удаления видео' });
   }
 });
 
