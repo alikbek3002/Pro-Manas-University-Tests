@@ -26,8 +26,6 @@ export interface GeneratedStudentPayload {
 }
 
 const ACCOUNT_OPTIONS: Array<{ id: AccountType; label: string }> = [
-  { id: 'ort', label: 'ОРТ' },
-  { id: 'medical', label: 'МЕД' },
   { id: 'manas', label: 'Манас' },
 ];
 
@@ -45,7 +43,7 @@ export function GenerateStudentModal({
   isSubmitting = false,
 }: GenerateStudentModalProps) {
   const [fullName, setFullName] = useState('');
-  const [accountType, setAccountType] = useState<AccountType>('ort');
+  const [accountType, setAccountType] = useState<AccountType>('manas');
   const [manasTrack, setManasTrack] = useState<'all_subjects' | 'humanities' | 'exact_sciences'>('all_subjects');
   const [selectedProgramCode, setSelectedProgramCode] = useState('');
   const [phone, setPhone] = useState('');
@@ -95,7 +93,7 @@ export function GenerateStudentModal({
 
   const resetForm = () => {
     setFullName('');
-    setAccountType('ort');
+    setAccountType('manas');
     setManasTrack('all_subjects');
     setSelectedProgramCode('');
     setPhone('');
@@ -150,7 +148,7 @@ export function GenerateStudentModal({
           <div className="space-y-4">
             <div className="space-y-2">
               <Label>Тип аккаунта</Label>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-1 gap-2">
                 {ACCOUNT_OPTIONS.map((option) => (
                   <button
                     key={option.id}

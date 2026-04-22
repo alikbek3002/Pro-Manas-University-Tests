@@ -40,8 +40,6 @@ import {
 import { toast } from 'sonner';
 
 const ACCOUNT_TYPE_OPTIONS: Array<{ value: AccountType; label: string }> = [
-  { value: 'ort', label: 'ОРТ' },
-  { value: 'medical', label: 'МЕД' },
   { value: 'manas', label: 'Манас' },
 ];
 
@@ -147,7 +145,7 @@ export default function StudentsPage() {
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
   const [editForm, setEditForm] = useState({
     fullName: '',
-    accountType: 'ort' as AccountType,
+    accountType: 'manas' as AccountType,
     manasTrack: 'all_subjects' as Exclude<Student['manasTrack'], null>,
     programCode: '',
     username: '',
@@ -406,7 +404,7 @@ export default function StudentsPage() {
         <div>
           <h2 className="text-2xl font-bold tracking-tight text-foreground">Студенты</h2>
           <p className="text-sm text-muted-foreground mt-1">
-            Управление аккаунтами ОРТ, МЕД и Манас.
+            Управление аккаунтами студентов Манас.
           </p>
         </div>
         <Button
