@@ -10,7 +10,8 @@ interface MarkdownRendererProps {
 }
 
 const remarkPlugins = [remarkMath];
-const rehypePlugins = [rehypeKatex];
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const rehypePlugins: any[] = [[rehypeKatex, { throwOnError: false, errorColor: '#cc0000' }]];
 
 function MarkdownRendererComponent({ content, className = '' }: MarkdownRendererProps) {
   return (

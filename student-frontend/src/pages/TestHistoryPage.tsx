@@ -5,6 +5,7 @@ import { useMemo, useState } from 'react';
 import { type TestHistoryDetail, type TestHistoryEntry } from '../lib/api';
 import { testHistoryDetailQueryOptions, testHistoryQueryOptions } from '../lib/studentQueries';
 import StudentLayout from '../components/StudentLayout';
+import { MarkdownRenderer } from '../components/MarkdownRenderer';
 
 function localizeUi(language: 'ru' | 'kg' | undefined, ruText: string, kgText: string) {
   return language === 'kg' ? kgText : ruText;
@@ -241,14 +242,11 @@ export default function TestHistoryPage() {
                                       {localizeUi(student?.language, 'кл.', 'кл.')}
                                       {q.topic ? ` · ${q.topic}` : ''}
                                     </p>
-                                    <p className="text-sm font-medium text-stone-900 leading-relaxed">
-                                      {q.text ||
-                                        localizeUi(
-                                          student?.language,
-                                          '(вопрос удалён)',
-                                          '(суроо өчүрүлгөн)',
-                                        )}
-                                    </p>
+                                    <div className="text-sm font-medium text-stone-900 leading-relaxed">
+                                      <MarkdownRenderer
+                                        content={q.text || localizeUi(student?.language, '(вопрос удалён)', '(суроо өчүрүлгөн)')}
+                                      />
+                                    </div>
                                     {q.image_url && (
                                       <img
                                         src={q.image_url}
@@ -283,7 +281,7 @@ export default function TestHistoryPage() {
                                           <span className="shrink-0 text-xs font-bold opacity-40 w-4">
                                             {String.fromCharCode(65 + i)}
                                           </span>
-                                          <span className="flex-1">{opt.text}</span>
+                                          <span className="flex-1"><MarkdownRenderer content={opt.text} /></span>
                                           {isCorrectOpt && (
                                             <Check className="h-3.5 w-3.5 text-green-600 shrink-0" />
                                           )}
