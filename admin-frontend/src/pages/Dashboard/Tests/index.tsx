@@ -404,7 +404,7 @@ export default function TestsPage() {
                         }`}
                       >
                         <span className="font-semibold mr-2">{optionLetterByIndex(index)}.</span>
-                        {option.text}
+                        <MarkdownRenderer content={option.text} />
                       </div>
                     ))}
                   </div>

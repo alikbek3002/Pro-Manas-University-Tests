@@ -1,6 +1,6 @@
-import { startTransition, useState, useEffect, useRef, useCallback } from 'react';
+import { startTransition, useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { ArrowRight, ArrowLeft, CheckCircle2, XCircle, Maximize, Shield, LogOut, ShieldAlert, Ban } from 'lucide-react';
+import { ArrowRight, ArrowLeft, AlertCircle, CheckCircle2, XCircle, Maximize, Shield, LogOut, ShieldAlert, Ban } from 'lucide-react';
 import { useNavigate, useLocation, Navigate, useParams } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { studentQueryKeys } from '../lib/studentQueries';
@@ -92,6 +92,7 @@ export default function TestPage() {
   const [bypassedFullscreen, setBypassedFullscreen] = useState(() => restoredProgress?.bypassedFullscreen ?? false);
   const [tabSwitchCount, setTabSwitchCount] = useState(() => restoredProgress?.tabSwitchCount ?? 0);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
+  const [showUnansweredModal, setShowUnansweredModal] = useState(false);
 
   const [screenshotModal, setScreenshotModal] = useState<{
     type: 'warning' | 'blocked_48h' | 'blocked_permanent';
@@ -307,6 +308,13 @@ export default function TestPage() {
   const isLastQuestion = currentQuestionIndex === totalQuestions - 1;
   const isFirstQuestion = currentQuestionIndex === 0;
 
+  const unansweredIndices = useMemo(() => {
+    if (!testData) return [] as number[];
+    return testData.questions
+      .map((q, i) => (revealedAnswers[q.id] ? null : i))
+      .filter((i): i is number => i !== null);
+  }, [testData, revealedAnswers]);
+
   useEffect(() => {
     if (!testData) {
       return;
@@ -416,6 +424,21 @@ export default function TestPage() {
         setCurrentQuestionIndex((prev) => prev + 1);
       });
     }
+  };
+
+  const handleFinishAttempt = () => {
+    if (unansweredIndices.length > 0) {
+      setShowUnansweredModal(true);
+      return;
+    }
+    handleSubmit();
+  };
+
+  const handleJumpToQuestion = (index: number) => {
+    setShowUnansweredModal(false);
+    startTransition(() => {
+      setCurrentQuestionIndex(index);
+    });
   };
 
 
@@ -652,6 +675,54 @@ export default function TestPage() {
         </div>
       )}
 
+      {/* Unanswered questions modal */}
+      {showUnansweredModal && (
+        <div
+          className="fixed inset-0 z-[20000] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          onClick={() => setShowUnansweredModal(false)}
+        >
+          <div
+            className="mx-4 w-full max-w-md rounded-3xl bg-white p-6 sm:p-8 shadow-2xl relative z-[20001]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mx-auto inline-flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 text-amber-600">
+              <AlertCircle className="h-6 w-6" />
+            </div>
+            <h3 className="mt-4 text-center text-lg font-bold text-slate-900">
+              {localizeUi(student?.language, 'Остались без ответа', 'Жоопсуз калды')}
+            </h3>
+            <p className="mt-2 text-center text-sm text-slate-500">
+              {localizeUi(
+                student?.language,
+                'Ответьте на эти вопросы, прежде чем завершить тест. Нажмите номер, чтобы перейти.',
+                'Тестти аяктаардан мурун бул суроолорго жооп бериңиз. Өтүү үчүн номерди басыңыз.',
+              )}
+            </p>
+
+            <div className="mt-5 flex flex-wrap justify-center gap-2">
+              {unansweredIndices.map((idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => handleJumpToQuestion(idx)}
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-xl border-2 border-stone-200 bg-white text-sm font-bold text-stone-700 transition-colors hover:border-black hover:bg-stone-50 active:scale-[0.97]"
+                >
+                  {idx + 1}
+                </button>
+              ))}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowUnansweredModal(false)}
+              className="mt-6 w-full h-11 rounded-xl border-2 border-stone-200 text-sm font-bold text-stone-700 hover:bg-stone-50 transition-colors"
+            >
+              {localizeUi(student?.language, 'Закрыть', 'Жабуу')}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Watermark overlay */}
       <div
         className="pointer-events-none fixed -inset-1/2 z-[9998]"
@@ -752,7 +823,6 @@ export default function TestPage() {
             <div className="grid gap-2 sm:gap-3">
               {currentQuestion?.options.map((option, index) => {
                 const isSelected = currentSelectedIndex === index;
-                const isCorrect = currentReveal?.correct_index === index;
                 const isAnswered = Boolean(currentReveal);
                 const isPending = isAnswering && isSelected;
 
@@ -762,20 +832,12 @@ export default function TestPage() {
                 if (isPending) {
                   optionClassName = 'border-black bg-stone-50 text-black animate-pulse';
                   badgeClassName = 'border-black bg-black text-white';
-                } else if (isAnswered) {
-                  if (isCorrect) {
-                    optionClassName = 'border-emerald-500 bg-emerald-50 text-emerald-950';
-                    badgeClassName = 'border-emerald-600 bg-emerald-500 text-white';
-                  } else if (isSelected) {
-                    optionClassName = 'border-rose-500 bg-rose-50 text-rose-950';
-                    badgeClassName = 'border-rose-600 bg-rose-500 text-white';
-                  } else {
-                    optionClassName = 'border-stone-200 bg-stone-50 text-stone-400 opacity-60';
-                    badgeClassName = 'border-stone-200 bg-stone-100 text-stone-400';
-                  }
                 } else if (isSelected) {
                   optionClassName = 'border-black bg-stone-50 text-black';
                   badgeClassName = 'border-black bg-black text-white';
+                } else if (isAnswered) {
+                  optionClassName = 'border-stone-200 bg-stone-50 text-stone-400 opacity-60';
+                  badgeClassName = 'border-stone-200 bg-stone-100 text-stone-400';
                 }
 
                 return (
@@ -797,35 +859,6 @@ export default function TestPage() {
             </div>
           </div>
 
-          {currentReveal && (
-            <div className={`border-t px-4 py-4 sm:px-6 sm:py-5 ${currentReveal.is_correct
-              ? 'border-emerald-200 bg-emerald-50/50'
-              : 'border-rose-200 bg-rose-50/50'
-              }`}>
-              <div className="flex items-center gap-2.5">
-                {currentReveal.is_correct ? (
-                  <div className="bg-emerald-100 p-1.5 rounded-lg text-emerald-600">
-                    <CheckCircle2 className="h-5 w-5" />
-                  </div>
-                ) : (
-                  <div className="bg-rose-100 p-1.5 rounded-lg text-rose-600">
-                    <XCircle className="h-5 w-5" />
-                  </div>
-                )}
-                <span className={`text-sm font-bold ${currentReveal.is_correct ? 'text-emerald-700' : 'text-rose-700'}`}>
-                  {student?.language === 'kg'
-                    ? (currentReveal.is_correct ? 'Азаматсың, туура жообу - ' : 'Жаңылышасың, туура жообу - ') + String.fromCharCode(65 + currentReveal.correct_index)
-                    : (currentReveal.is_correct ? 'Правильно' : 'Неправильно') + ' — ' + String.fromCharCode(65 + currentReveal.correct_index)}
-                </span>
-              </div>
-
-              {currentReveal.explanation && (
-                <div className="mt-2.5 text-xs sm:text-sm leading-relaxed text-slate-600">
-                  <MarkdownRenderer content={currentReveal.explanation} />
-                </div>
-              )}
-            </div>
-          )}
         </main>
 
         {/* Navigation */}
@@ -843,32 +876,30 @@ export default function TestPage() {
           </button>
 
           <div className="flex items-center gap-2 sm:gap-3">
-            {isLastQuestion ? (
-              <button
-                onClick={handleSubmit}
-                disabled={isSubmitting || isAnswering || !currentReveal}
-                className={`inline-flex h-10 sm:h-12 items-center justify-center gap-1.5 sm:gap-2 rounded-xl px-3.5 sm:px-6 text-xs sm:text-sm font-bold transition-colors ${!(isSubmitting || isAnswering || !currentReveal)
-                  ? 'bg-emerald-600 text-white hover:bg-emerald-700 active:scale-[0.97]'
-                  : 'cursor-not-allowed bg-stone-100 text-stone-400'
-                  }`}
-              >
-                {isSubmitting
-                  ? localizeUi(student?.language, 'Отправляем...', 'Жөнөтүүдө...')
-                  : localizeUi(student?.language, 'Завершить', 'Аяктоо')}
-              </button>
-            ) : (
-              <button
-                onClick={handleGoNext}
-                disabled={isAnswering || !currentReveal}
-                className={`inline-flex h-10 sm:h-12 items-center justify-center gap-1.5 sm:gap-2 rounded-xl px-3.5 sm:px-5 text-xs sm:text-sm font-bold transition-all ${!(isAnswering || !currentReveal)
-                  ? 'bg-black text-white hover:opacity-80 active:scale-[0.97]'
-                  : 'cursor-not-allowed bg-stone-100 text-stone-400'
-                  }`}
-              >
-                <span className="hidden sm:inline">{localizeUi(student?.language, 'Далее', 'Кийинки')}</span>
-                <ArrowRight className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-              </button>
-            )}
+            <button
+              onClick={handleGoNext}
+              disabled={isAnswering || isLastQuestion}
+              className={`inline-flex h-10 sm:h-12 items-center justify-center gap-1.5 sm:gap-2 rounded-xl px-3.5 sm:px-5 text-xs sm:text-sm font-bold transition-all ${!(isAnswering || isLastQuestion)
+                ? 'bg-black text-white hover:opacity-80 active:scale-[0.97]'
+                : 'cursor-not-allowed bg-stone-100 text-stone-400'
+                }`}
+            >
+              <span className="hidden sm:inline">{localizeUi(student?.language, 'Далее', 'Кийинки')}</span>
+              <ArrowRight className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+            </button>
+
+            <button
+              onClick={handleFinishAttempt}
+              disabled={isSubmitting || isAnswering}
+              className={`inline-flex h-10 sm:h-12 items-center justify-center gap-1.5 sm:gap-2 rounded-xl px-3.5 sm:px-6 text-xs sm:text-sm font-bold transition-colors ${!(isSubmitting || isAnswering)
+                ? 'bg-emerald-600 text-white hover:bg-emerald-700 active:scale-[0.97]'
+                : 'cursor-not-allowed bg-stone-100 text-stone-400'
+                }`}
+            >
+              {isSubmitting
+                ? localizeUi(student?.language, 'Отправляем...', 'Жөнөтүүдө...')
+                : localizeUi(student?.language, 'Завершить', 'Аяктоо')}
+            </button>
           </div>
         </div>
       </div>

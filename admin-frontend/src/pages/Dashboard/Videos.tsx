@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Film, FolderTree, Loader2, PlayCircle, Plus, Trash2, Upload, X, CheckCircle2, AlertCircle,
 } from 'lucide-react';
@@ -244,6 +244,8 @@ export default function VideosPage() {
   const [error, setError] = useState<string | null>(null);
   const [showUpload, setShowUpload] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [subjectFilter, setSubjectFilter] = useState<string>('all');
+  const [programFilter, setProgramFilter] = useState<string>('all');
 
   const loadCatalog = useCallback(async () => {
     setLoading(true);
@@ -258,6 +260,24 @@ export default function VideosPage() {
   }, []);
 
   useEffect(() => { void loadCatalog(); }, [loadCatalog]);
+
+  const filteredPrograms = useMemo(() => {
+    let result = programs;
+    if (programFilter !== 'all') {
+      result = result.filter((program) => program.programCode === programFilter);
+    }
+    if (subjectFilter !== 'all') {
+      result = result
+        .map((program) => ({
+          ...program,
+          subjects: program.subjects.filter((subject) => subject.subjectCode === subjectFilter),
+        }))
+        .filter((program) => program.subjects.length > 0);
+    }
+    return result;
+  }, [programs, programFilter, subjectFilter]);
+
+  const filtersActive = subjectFilter !== 'all' || programFilter !== 'all';
 
   const handleDelete = async (lessonId: string) => {
     if (!confirm('Удалить этот видеоурок? Файл будет удалён из R2.')) return;
@@ -295,6 +315,48 @@ export default function VideosPage() {
         <UploadModal onClose={() => setShowUpload(false)} onSuccess={loadCatalog} />
       )}
 
+      {!loading && !error && programs.length > 0 && (
+        <div className="flex flex-wrap items-end gap-3 rounded-xl border border-border bg-card p-3">
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-medium text-muted-foreground">Предмет</label>
+            <select
+              value={subjectFilter}
+              onChange={(e) => setSubjectFilter(e.target.value)}
+              className="min-w-[180px] rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:ring-2 focus:ring-emerald-500/40"
+            >
+              <option value="all">Все предметы</option>
+              {SUBJECT_OPTIONS.map((s) => (
+                <option key={s.code} value={s.code}>{s.label}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-medium text-muted-foreground">Программа</label>
+            <select
+              value={programFilter}
+              onChange={(e) => setProgramFilter(e.target.value)}
+              className="min-w-[220px] rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:ring-2 focus:ring-emerald-500/40"
+            >
+              <option value="all">Все программы</option>
+              {PROGRAM_OPTIONS.map((p) => (
+                <option key={p.code} value={p.code}>{p.label}</option>
+              ))}
+            </select>
+          </div>
+
+          {filtersActive && (
+            <button
+              type="button"
+              onClick={() => { setSubjectFilter('all'); setProgramFilter('all'); }}
+              className="h-[38px] rounded-lg border border-border bg-background px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              Сбросить
+            </button>
+          )}
+        </div>
+      )}
+
       {loading ? (
         <div className="flex items-center gap-3 rounded-xl border border-border bg-card p-5 text-sm text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" />
@@ -309,9 +371,14 @@ export default function VideosPage() {
           <Film className="h-10 w-10 text-muted-foreground/50" />
           <p className="text-sm text-muted-foreground">Видеокаталог пока пуст. Загрузите первый видеоурок.</p>
         </div>
+      ) : filteredPrograms.length === 0 ? (
+        <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-border bg-card p-10 text-center">
+          <Film className="h-10 w-10 text-muted-foreground/50" />
+          <p className="text-sm text-muted-foreground">Нет видео под выбранный фильтр.</p>
+        </div>
       ) : (
         <div className="space-y-5">
-          {programs.map((program) => (
+          {filteredPrograms.map((program) => (
             <section key={program.programCode} className="rounded-2xl border border-border bg-card p-5 shadow-sm">
               <div className="flex flex-wrap items-start justify-between gap-4 border-b border-border/70 pb-4">
                 <div>
