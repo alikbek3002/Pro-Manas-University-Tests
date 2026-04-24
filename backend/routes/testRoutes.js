@@ -721,29 +721,38 @@ router.post('/login', async (req, res) => {
     const { username, password } = req.body || {};
 
     const normalizedUsername = String(username || '').trim().toLowerCase();
-    const plainPassword = String(password || '');
+    const rawPassword = String(password || '');
+    const trimmedPassword = rawPassword.trim();
 
-    if (!normalizedUsername || !plainPassword) {
+    if (!normalizedUsername || !trimmedPassword) {
       return res.status(400).json({ error: 'Username and password are required' });
     }
 
-    const { data: student, error } = await supabase
+    // Case-insensitive username lookup — DB has a unique index on lower(username),
+    // but historical rows may contain mixed-case values. ilike matches regardless of case.
+    const { data: students, error } = await supabase
       .from('uni_students')
       .select('id, full_name, username, password_hash, plain_password, account_type, manas_track, is_active, blocked_until, blocked_permanently, screenshot_strikes, created_at, expires_at')
-      .eq('username', normalizedUsername)
-      .maybeSingle();
+      .ilike('username', normalizedUsername)
+      .limit(1);
 
     if (error) {
       console.error('Student login lookup error:', error);
       return res.status(500).json({ error: 'Ошибка поиска ученика' });
     }
 
+    const student = Array.isArray(students) && students.length > 0 ? students[0] : null;
+
     if (!student) {
       return res.status(401).json({ error: 'Неверный логин или пароль' });
     }
 
-    const passwordMatches = student.password_hash === hashPassword(plainPassword)
-      || (student.plain_password && student.plain_password === plainPassword);
+    const candidatePasswords = Array.from(new Set([rawPassword, trimmedPassword].filter(Boolean)));
+    const passwordMatches = candidatePasswords.some((candidate) => (
+      student.password_hash === hashPassword(candidate)
+      || (student.plain_password && student.plain_password === candidate)
+      || (student.plain_password && student.plain_password.trim() === candidate)
+    ));
 
     if (!passwordMatches) {
       return res.status(401).json({ error: 'Неверный логин или пароль' });

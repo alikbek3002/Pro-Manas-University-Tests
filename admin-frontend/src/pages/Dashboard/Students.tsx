@@ -472,6 +472,7 @@ export default function StudentsPage() {
             <TableRow className="hover:bg-transparent bg-muted/30">
               <TableHead>ФИО</TableHead>
               <TableHead>Аккаунт</TableHead>
+              <TableHead>Трек</TableHead>
               <TableHead>Программа</TableHead>
               <TableHead>Логин</TableHead>
               <TableHead>Пароль</TableHead>
@@ -486,13 +487,13 @@ export default function StudentsPage() {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={11} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={12} className="text-center text-muted-foreground py-8">
                   Загрузка студентов...
                 </TableCell>
               </TableRow>
             ) : students.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={11} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={12} className="text-center text-muted-foreground py-8">
                   Студенты не найдены
                 </TableCell>
               </TableRow>
@@ -504,6 +505,15 @@ export default function StudentsPage() {
                     <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-primary/10 text-primary">
                       {student.accountTypeTitle}
                     </span>
+                  </TableCell>
+                  <TableCell>
+                    {student.accountType === 'manas' && student.manasTrackTitle ? (
+                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">
+                        {student.manasTrackTitle}
+                      </span>
+                    ) : (
+                      <span className="text-sm text-muted-foreground">—</span>
+                    )}
                   </TableCell>
                   <TableCell className="max-w-[220px]">
                     <div className="text-sm text-foreground truncate" title={student.programName || '—'}>

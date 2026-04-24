@@ -531,7 +531,7 @@ router.post('/students', requireAdmin, async (req, res) => {
       : generateBaseUsername(fullNameNormalized);
 
     const username = await ensureUniqueUsername(candidateBaseUsername);
-    const password = String(rawPassword || generatePasswordForUsername(username));
+    const password = String(rawPassword ?? '').trim() || generatePasswordForUsername(username);
     const phone = String(rawPhone || '').trim();
     const amount = rawAmount === undefined || rawAmount === null || rawAmount === '' ? 0 : Number(rawAmount);
 

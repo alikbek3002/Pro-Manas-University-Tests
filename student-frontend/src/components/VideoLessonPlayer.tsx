@@ -9,6 +9,8 @@ import {
   Play,
   Volume2,
   VolumeX,
+  ZoomIn,
+  ZoomOut,
 } from 'lucide-react';
 import { resolveApiMediaUrl, type VideoLesson } from '../lib/api';
 
@@ -115,6 +117,7 @@ export default function VideoLessonPlayer({
   const [isMuted, setIsMuted] = useState(false);
   const [playbackRate, setPlaybackRate] = useState(1);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [zoomLevel, setZoomLevel] = useState(1);
   const displayedTime = seekTargetTime ?? currentTime;
 
   const progressPercent = useMemo(
@@ -500,6 +503,7 @@ export default function VideoLessonPlayer({
       clearPendingAutoplay();
       setIsPlaying(true);
       setIsBuffering(false);
+      setZoomLevel(1);
       scheduleHideControls();
     };
     const handlePause = () => {
@@ -634,6 +638,11 @@ export default function VideoLessonPlayer({
           disableRemotePlayback
           controlsList="nodownload noplaybackrate noremoteplayback"
           poster={resolvedPosterUrl || undefined}
+          style={{
+            transform: zoomLevel !== 1 ? `scale(${zoomLevel})` : undefined,
+            transformOrigin: 'center center',
+            transition: 'transform 0.18s ease-out',
+          }}
           onClick={(event) => {
             event.stopPropagation();
             void togglePlay();
@@ -801,6 +810,40 @@ export default function VideoLessonPlayer({
                 </div>
 
                 <div className="flex items-center gap-2">
+                  {!isPlaying ? (
+                    <div className="flex items-center gap-1 rounded-xl border border-white/25 bg-white/10 px-1 py-1">
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setZoomLevel((prev) => Math.max(1, Number((prev - 0.25).toFixed(2))));
+                          revealControls();
+                        }}
+                        disabled={zoomLevel <= 1}
+                        className="flex h-7 w-7 items-center justify-center rounded-lg text-white transition-colors hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-40"
+                        aria-label="Уменьшить масштаб"
+                      >
+                        <ZoomOut className="h-4 w-4" />
+                      </button>
+                      <span className="min-w-[2.4rem] text-center text-[11px] font-semibold text-white/90 tabular-nums">
+                        {Math.round(zoomLevel * 100)}%
+                      </span>
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setZoomLevel((prev) => Math.min(3, Number((prev + 0.25).toFixed(2))));
+                          revealControls();
+                        }}
+                        disabled={zoomLevel >= 3}
+                        className="flex h-7 w-7 items-center justify-center rounded-lg text-white transition-colors hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-40"
+                        aria-label="Увеличить масштаб"
+                      >
+                        <ZoomIn className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ) : null}
+
                   <button
                     type="button"
                     onClick={(event) => {
