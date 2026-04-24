@@ -75,8 +75,6 @@ app.use(
   }),
 );
 
-app.options('*', cors());
-
 app.use(express.json());
 
 // ── Lightweight in-memory rate limiter (no npm dependency) ──
