@@ -28,25 +28,54 @@ const localOrigins = [
   'http://127.0.0.1:3001',
 ];
 
+// Production origins enabled by default so deploys don't silently break
+// when CORS_ORIGIN isn't set in Railway. Add additional origins via the env var.
+const productionOrigins = [
+  'https://proabiturient.com',
+  'https://www.proabiturient.com',
+  'https://admin.proabiturient.com',
+  'https://demo.proabiturient.com',
+];
+
 const envOrigins = stripWrappingQuotes(process.env.CORS_ORIGIN)
   .split(',')
   .map((o) => stripWrappingQuotes(o))
   .filter(Boolean);
 
-const allowedOrigins = new Set([...localOrigins, ...envOrigins]);
+const allowedOrigins = new Set([...localOrigins, ...productionOrigins, ...envOrigins]);
+
+// Preview/deploy domains we consider safe without listing every subdomain
+const allowedOriginPatterns = [
+  /^https:\/\/[a-z0-9-]+\.proabiturient\.com$/i,
+  /^https:\/\/[a-z0-9-]+\.vercel\.app$/i,
+  /^https:\/\/[a-z0-9-]+\.pages\.dev$/i,
+  /^https:\/\/[a-z0-9-]+\.up\.railway\.app$/i,
+];
+
+function isOriginAllowed(origin) {
+  if (!origin) return true;
+  if (allowedOrigins.has(origin)) return true;
+  return allowedOriginPatterns.some((pattern) => pattern.test(origin));
+}
 
 app.use(
   cors({
     origin(origin, cb) {
-      if (!origin || allowedOrigins.has(origin)) return cb(null, true);
-      cb(new Error(`CORS blocked: ${origin}`));
+      if (isOriginAllowed(origin)) return cb(null, true);
+      console.warn(`CORS blocked origin: ${origin}`);
+      // Do NOT throw — returning false lets the browser see a normal preflight
+      // response without ACAO, producing a cleaner CORS error than a 500.
+      return cb(null, false);
     },
     credentials: true,
     methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     exposedHeaders: ['X-Student-Token'],
+    optionsSuccessStatus: 204,
   }),
 );
+
+app.options('*', cors());
 
 app.use(express.json());
 
