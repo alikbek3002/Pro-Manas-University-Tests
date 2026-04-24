@@ -128,8 +128,8 @@ export function GenerateStudentModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-card w-full max-w-lg rounded-xl shadow-lg border border-border overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+      <div className="bg-card w-full max-w-lg rounded-xl shadow-lg border border-border overflow-hidden animate-in fade-in zoom-in-95 duration-200 my-auto max-h-[calc(100vh-2rem)] flex flex-col">
         <div className="flex items-center justify-between p-6 border-b border-border">
           <div className="flex items-center gap-2">
             <UserPlus className="w-5 h-5 text-primary" />
@@ -144,7 +144,7 @@ export function GenerateStudentModal({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+        <form onSubmit={handleSubmit} className="p-6 space-y-6 overflow-y-auto">
           <div className="space-y-4">
             <div className="space-y-2">
               <Label>Тип аккаунта</Label>
@@ -282,11 +282,21 @@ export function GenerateStudentModal({
             </div>
           </div>
 
-          <div className="flex items-center justify-end gap-3 pt-4 border-t border-border">
-            <Button type="button" variant="ghost" onClick={onClose} disabled={isSubmitting}>
+          <div className="flex flex-wrap items-center justify-end gap-3 pt-4 border-t border-border">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={onClose}
+              disabled={isSubmitting}
+              className="min-w-[88px]"
+            >
               Отмена
             </Button>
-            <Button type="submit" disabled={!previewUsername || isSubmitting}>
+            <Button
+              type="submit"
+              disabled={!previewUsername || isSubmitting}
+              className="min-w-[176px]"
+            >
               {isSubmitting ? 'Создание...' : 'Создать студента'}
             </Button>
           </div>
