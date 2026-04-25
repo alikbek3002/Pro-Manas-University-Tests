@@ -35,8 +35,10 @@ export function resolveApiMediaUrl(value: string | null | undefined): string | n
   }
 }
 
-let onUnauthorized: ((failedToken: string) => void) | null = null;
-export function setOnUnauthorized(cb: (failedToken: string) => void) {
+export type UnauthorizedReason = 'taken_over' | 'expired';
+
+let onUnauthorized: ((failedToken: string, reason: UnauthorizedReason) => void) | null = null;
+export function setOnUnauthorized(cb: (failedToken: string, reason: UnauthorizedReason) => void) {
   onUnauthorized = cb;
 }
 
@@ -46,6 +48,7 @@ function getAuthToken(): string | null {
 
 interface ApiErrorPayload {
   error?: string;
+  code?: string;
 }
 
 export interface StudentAuthUser {
@@ -267,14 +270,17 @@ async function request<T>(
     const errorMessage =
       (data && typeof data === 'object' && 'error' in data && typeof data.error === 'string' ? data.error : null) ||
       `Request failed with status ${response.status}`;
-    // GET 401 = stale session → auto-logout + redirect to login
-    // POST 401 = test in progress → just throw error, show in UI, preserve test state
-    if (response.status === 401 && method === 'GET') {
+    const errorCode = data && typeof data === 'object' && typeof data.code === 'string' ? data.code : null;
+    // SESSION_TAKEN_OVER (logged in from another device) always triggers logout,
+    // even on POST — the user must be told. Otherwise, only GET 401 auto-logs-out
+    // (POST 401 during a test surfaces as a UI error and preserves test state).
+    const isTakenOver = response.status === 401 && errorCode === 'SESSION_TAKEN_OVER';
+    if (isTakenOver || (response.status === 401 && method === 'GET')) {
       // Only trigger logout if the token that failed is still the active token.
       // A concurrent request may have already refreshed it.
       const currentToken = useAuthStore.getState().token;
       if (!currentToken || currentToken === token) {
-        onUnauthorized?.(token || '');
+        onUnauthorized?.(token || '', isTakenOver ? 'taken_over' : 'expired');
       }
     }
     throw new Error(errorMessage);
@@ -375,4 +381,8 @@ export async function fetchTestHistory(signal?: AbortSignal) {
 
 export async function fetchTestHistoryDetail(id: string, type: string, signal?: AbortSignal) {
   return request<TestHistoryDetail>(`/tests/history/${id}?type=${type}`, 'GET', undefined, getAuthToken() ?? undefined, signal);
+}
+
+export function pingSession(signal?: AbortSignal) {
+  return request<{ ok: true; studentId: string }>('/tests/session/heartbeat', 'GET', undefined, getAuthToken() ?? undefined, signal);
 }

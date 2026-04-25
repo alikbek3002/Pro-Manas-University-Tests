@@ -646,7 +646,7 @@ async function authenticateStudent(req, res, next) {
     const payload = verifyStudentToken(token);
 
     if (!token || !payload || !payload.sub) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      return res.status(401).json({ error: 'Срок действия сессии истёк', code: 'SESSION_EXPIRED' });
     }
 
     const { data: student, error } = await supabase
@@ -661,12 +661,15 @@ async function authenticateStudent(req, res, next) {
     }
 
     if (!student) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      return res.status(401).json({ error: 'Срок действия сессии истёк', code: 'SESSION_EXPIRED' });
     }
 
     const tokenMatches = token === student.active_session_token || token === student.previous_session_token;
     if (!tokenMatches) {
-      return res.status(401).json({ error: 'Session expired' });
+      // Token's HMAC and exp are valid (we got past verifyStudentToken), but it
+      // no longer matches the active/previous session for this student.
+      // That means a newer login displaced this session.
+      return res.status(401).json({ error: 'На ваш аккаунт зашли с другого устройства', code: 'SESSION_TAKEN_OVER' });
     }
 
     if (!student.is_active) {
@@ -916,6 +919,13 @@ router.get('/videos/proxy/:grantId', async (req, res) => {
 });
 
 router.use(authenticateStudent);
+
+// Lightweight session ping. The middleware above already enforces
+// "still the active session" — if it isn't, it returns 401 SESSION_TAKEN_OVER.
+// The frontend polls this every 30s so an idle device notices a new login.
+router.get('/session/heartbeat', (req, res) => {
+  res.json({ ok: true, studentId: req.student.id });
+});
 
 router.get('/available', async (req, res) => {
   try {

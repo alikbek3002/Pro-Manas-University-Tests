@@ -14,6 +14,53 @@ import {
 } from 'lucide-react';
 import { resolveApiMediaUrl, type VideoLesson } from '../lib/api';
 
+const MIN_ZOOM = 1;
+const MAX_ZOOM = 3;
+const TOGGLE_ZOOM = 2;
+const ZOOM_STEP = 0.25;
+const PAN_DRAG_THRESHOLD_PX = 4;
+
+type Vec2 = { x: number; y: number };
+
+function clampPan(pan: Vec2, zoom: number, halfWidth: number, halfHeight: number): Vec2 {
+  if (zoom <= 1) return { x: 0, y: 0 };
+  const maxX = (zoom - 1) * halfWidth;
+  const maxY = (zoom - 1) * halfHeight;
+  return {
+    x: Math.max(-maxX, Math.min(maxX, pan.x)),
+    y: Math.max(-maxY, Math.min(maxY, pan.y)),
+  };
+}
+
+// Compute the new zoom level + pan offset such that the focus point in
+// screen-space (clientX/clientY of pinch midpoint, mouse cursor, or tap)
+// stays anchored on the same pixel of the video.
+function computeZoomTransform(
+  focusClient: Vec2,
+  rect: DOMRect,
+  prevZoom: number,
+  prevPan: Vec2,
+  nextZoom: number,
+): { zoom: number; pan: Vec2 } {
+  const z = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, nextZoom));
+  const cx = rect.width / 2;
+  const cy = rect.height / 2;
+  const fx = focusClient.x - rect.left;
+  const fy = focusClient.y - rect.top;
+  if (z <= 1) {
+    return { zoom: 1, pan: { x: 0, y: 0 } };
+  }
+  if (z === prevZoom) {
+    return { zoom: prevZoom, pan: clampPan(prevPan, prevZoom, cx, cy) };
+  }
+  const ratio = z / prevZoom;
+  const pan = {
+    x: fx - cx - (fx - cx - prevPan.x) * ratio,
+    y: fy - cy - (fy - cy - prevPan.y) * ratio,
+  };
+  return { zoom: z, pan: clampPan(pan, z, cx, cy) };
+}
+
 interface VideoLessonPlayerProps {
   lesson: VideoLesson | null;
   autoplayLessonId?: string | null;
@@ -98,6 +145,24 @@ export default function VideoLessonPlayer({
   const pendingAutoplayRequestRef = useRef<number | null>(null);
   const completedAutoplayRequestRef = useRef(0);
 
+  // Zoom + pan gesture refs.
+  const activePointersRef = useRef<Map<number, Vec2>>(new Map());
+  const pinchStateRef = useRef<{
+    startDist: number;
+    startZoom: number;
+    startPan: Vec2;
+    midClient: Vec2;
+  } | null>(null);
+  const dragStateRef = useRef<{
+    pointerId: number;
+    startClient: Vec2;
+    startPan: Vec2;
+    moved: boolean;
+  } | null>(null);
+  // When a gesture (pinch / drag / double-tap) consumes a pointer interaction,
+  // we suppress the click that would otherwise toggle play/pause.
+  const suppressClickRef = useRef(false);
+
   const playableSources = useMemo(() => getPlayableSources(lesson), [lesson]);
   const sourcesSignature = useMemo(() => playableSources.join('|'), [playableSources]);
   const [sourceAttemptIndex, setSourceAttemptIndex] = useState(0);
@@ -117,7 +182,10 @@ export default function VideoLessonPlayer({
   const [isMuted, setIsMuted] = useState(false);
   const [playbackRate, setPlaybackRate] = useState(1);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [zoomLevel, setZoomLevel] = useState(1);
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState<Vec2>({ x: 0, y: 0 });
+  const [isGesturing, setIsGesturing] = useState(false);
+  const isZoomed = zoom > 1;
   const displayedTime = seekTargetTime ?? currentTime;
 
   const progressPercent = useMemo(
@@ -503,7 +571,6 @@ export default function VideoLessonPlayer({
       clearPendingAutoplay();
       setIsPlaying(true);
       setIsBuffering(false);
-      setZoomLevel(1);
       scheduleHideControls();
     };
     const handlePause = () => {
@@ -596,6 +663,209 @@ export default function VideoLessonPlayer({
     clearHideControlsTimer();
   }, [clearHideControlsTimer]);
 
+  // Reset zoom + pan when switching to a different lesson, but persist
+  // across play/pause and seeks within the same lesson.
+  useEffect(() => {
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+    pinchStateRef.current = null;
+    dragStateRef.current = null;
+    activePointersRef.current.clear();
+    setIsGesturing(false);
+  }, [lesson?.id]);
+
+  const applyZoomAtPoint = useCallback((focusClient: Vec2, nextZoom: number) => {
+    const video = videoRef.current;
+    if (!video) return;
+    const rect = video.getBoundingClientRect();
+    const result = computeZoomTransform(focusClient, rect, zoom, pan, nextZoom);
+    setZoom(result.zoom);
+    setPan(result.pan);
+  }, [pan, zoom]);
+
+  const resetZoom = useCallback(() => {
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+  }, []);
+
+  const stepZoom = useCallback((delta: number) => {
+    const video = videoRef.current;
+    if (!video) return;
+    const rect = video.getBoundingClientRect();
+    // Step buttons zoom around the current visual center of the video.
+    const focus = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+    const target = Math.round((zoom + delta) * 100) / 100;
+    if (target <= 1) {
+      resetZoom();
+      return;
+    }
+    const result = computeZoomTransform(focus, rect, zoom, pan, target);
+    setZoom(result.zoom);
+    setPan(result.pan);
+  }, [pan, resetZoom, zoom]);
+
+  const handlePointerDown = useCallback((event: React.PointerEvent<HTMLVideoElement>) => {
+    const video = videoRef.current;
+    if (!video) return;
+    activePointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+
+    if (activePointersRef.current.size === 2) {
+      const points = Array.from(activePointersRef.current.values());
+      const dx = points[0].x - points[1].x;
+      const dy = points[0].y - points[1].y;
+      const dist = Math.hypot(dx, dy) || 1;
+      pinchStateRef.current = {
+        startDist: dist,
+        startZoom: zoom,
+        startPan: pan,
+        midClient: { x: (points[0].x + points[1].x) / 2, y: (points[0].y + points[1].y) / 2 },
+      };
+      dragStateRef.current = null;
+      suppressClickRef.current = true;
+      setIsGesturing(true);
+      try {
+        video.setPointerCapture(event.pointerId);
+      } catch {
+        // ignore
+      }
+      return;
+    }
+
+    if (activePointersRef.current.size === 1 && isZoomed) {
+      dragStateRef.current = {
+        pointerId: event.pointerId,
+        startClient: { x: event.clientX, y: event.clientY },
+        startPan: pan,
+        moved: false,
+      };
+      try {
+        video.setPointerCapture(event.pointerId);
+      } catch {
+        // ignore
+      }
+    }
+  }, [isZoomed, pan, zoom]);
+
+  const handlePointerMove = useCallback((event: React.PointerEvent<HTMLVideoElement>) => {
+    if (!activePointersRef.current.has(event.pointerId)) return;
+    activePointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+
+    if (pinchStateRef.current && activePointersRef.current.size >= 2) {
+      const video = videoRef.current;
+      if (!video) return;
+      const points = Array.from(activePointersRef.current.values()).slice(0, 2);
+      const dx = points[0].x - points[1].x;
+      const dy = points[0].y - points[1].y;
+      const dist = Math.hypot(dx, dy) || 1;
+      const ratio = dist / pinchStateRef.current.startDist;
+      const targetZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, pinchStateRef.current.startZoom * ratio));
+
+      const rect = video.getBoundingClientRect();
+      const result = computeZoomTransform(
+        pinchStateRef.current.midClient,
+        rect,
+        pinchStateRef.current.startZoom,
+        pinchStateRef.current.startPan,
+        targetZoom,
+      );
+      setZoom(result.zoom);
+      setPan(result.pan);
+      suppressClickRef.current = true;
+      return;
+    }
+
+    const drag = dragStateRef.current;
+    if (drag && drag.pointerId === event.pointerId) {
+      const dx = event.clientX - drag.startClient.x;
+      const dy = event.clientY - drag.startClient.y;
+      if (!drag.moved && (Math.abs(dx) > PAN_DRAG_THRESHOLD_PX || Math.abs(dy) > PAN_DRAG_THRESHOLD_PX)) {
+        drag.moved = true;
+        suppressClickRef.current = true;
+        setIsGesturing(true);
+      }
+      if (!drag.moved) return;
+
+      const video = videoRef.current;
+      if (!video) return;
+      const rect = video.getBoundingClientRect();
+      const next = clampPan(
+        { x: drag.startPan.x + dx, y: drag.startPan.y + dy },
+        zoom,
+        rect.width / 2,
+        rect.height / 2,
+      );
+      setPan(next);
+    }
+  }, [zoom]);
+
+  const handlePointerUp = useCallback((event: React.PointerEvent<HTMLVideoElement>) => {
+    activePointersRef.current.delete(event.pointerId);
+    if (activePointersRef.current.size < 2) {
+      pinchStateRef.current = null;
+    }
+    if (dragStateRef.current?.pointerId === event.pointerId) {
+      dragStateRef.current = null;
+    }
+    if (activePointersRef.current.size === 0) {
+      setIsGesturing(false);
+    }
+    try {
+      videoRef.current?.releasePointerCapture(event.pointerId);
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const handleVideoDoubleClick = useCallback((event: React.MouseEvent<HTMLVideoElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    suppressClickRef.current = true;
+    if (zoom > 1) {
+      resetZoom();
+      return;
+    }
+    applyZoomAtPoint({ x: event.clientX, y: event.clientY }, TOGGLE_ZOOM);
+  }, [applyZoomAtPoint, resetZoom, zoom]);
+
+  const handleVideoClick = useCallback((event: React.MouseEvent<HTMLVideoElement>) => {
+    event.stopPropagation();
+    if (suppressClickRef.current) {
+      suppressClickRef.current = false;
+      return;
+    }
+    void togglePlay();
+  }, [togglePlay]);
+
+  // Ctrl/⌘ + wheel zooms around the cursor on desktop. We attach this with
+  // `passive: false` so we can preventDefault and override the browser's
+  // built-in page zoom.
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    const handleWheel = (event: WheelEvent) => {
+      if (!event.ctrlKey && !event.metaKey) return;
+      event.preventDefault();
+      const direction = event.deltaY < 0 ? 1 : -1;
+      const rect = video.getBoundingClientRect();
+      const target = Math.round((zoom + direction * ZOOM_STEP) * 100) / 100;
+      if (target <= 1) {
+        resetZoom();
+        return;
+      }
+      const result = computeZoomTransform(
+        { x: event.clientX, y: event.clientY },
+        rect,
+        zoom,
+        pan,
+        target,
+      );
+      setZoom(result.zoom);
+      setPan(result.pan);
+    };
+    video.addEventListener('wheel', handleWheel, { passive: false });
+    return () => video.removeEventListener('wheel', handleWheel);
+  }, [pan, resetZoom, zoom]);
+
   if (!lesson) {
     return (
       <div className="flex aspect-video items-center justify-center rounded-2xl border border-dashed border-stone-300 bg-gradient-to-br from-stone-100 to-stone-50 text-sm text-stone-500">
@@ -639,14 +909,19 @@ export default function VideoLessonPlayer({
           controlsList="nodownload noplaybackrate noremoteplayback"
           poster={resolvedPosterUrl || undefined}
           style={{
-            transform: zoomLevel !== 1 ? `scale(${zoomLevel})` : undefined,
+            transform: `translate3d(${pan.x}px, ${pan.y}px, 0) scale(${zoom})`,
             transformOrigin: 'center center',
-            transition: 'transform 0.18s ease-out',
+            transition: isGesturing ? 'none' : 'transform 0.18s ease-out',
+            touchAction: 'none',
+            cursor: isZoomed ? (isGesturing ? 'grabbing' : 'grab') : undefined,
+            willChange: zoom !== 1 ? 'transform' : undefined,
           }}
-          onClick={(event) => {
-            event.stopPropagation();
-            void togglePlay();
-          }}
+          onClick={handleVideoClick}
+          onDoubleClick={handleVideoDoubleClick}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerUp}
           onContextMenu={(event) => event.preventDefault()}
         />
       </motion.div>
@@ -810,39 +1085,49 @@ export default function VideoLessonPlayer({
                 </div>
 
                 <div className="flex items-center gap-2">
-                  {!isPlaying ? (
-                    <div className="flex items-center gap-1 rounded-xl border border-white/25 bg-white/10 px-1 py-1">
-                      <button
-                        type="button"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          setZoomLevel((prev) => Math.max(1, Number((prev - 0.25).toFixed(2))));
+                  <div className="flex items-center gap-1 rounded-xl border border-white/25 bg-white/10 px-1 py-1">
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        stepZoom(-ZOOM_STEP);
+                        revealControls();
+                      }}
+                      disabled={zoom <= MIN_ZOOM}
+                      className="flex h-7 w-7 items-center justify-center rounded-lg text-white transition-colors hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-40"
+                      aria-label="Уменьшить масштаб"
+                    >
+                      <ZoomOut className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        if (isZoomed) {
+                          resetZoom();
                           revealControls();
-                        }}
-                        disabled={zoomLevel <= 1}
-                        className="flex h-7 w-7 items-center justify-center rounded-lg text-white transition-colors hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-40"
-                        aria-label="Уменьшить масштаб"
-                      >
-                        <ZoomOut className="h-4 w-4" />
-                      </button>
-                      <span className="min-w-[2.4rem] text-center text-[11px] font-semibold text-white/90 tabular-nums">
-                        {Math.round(zoomLevel * 100)}%
-                      </span>
-                      <button
-                        type="button"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          setZoomLevel((prev) => Math.min(3, Number((prev + 0.25).toFixed(2))));
-                          revealControls();
-                        }}
-                        disabled={zoomLevel >= 3}
-                        className="flex h-7 w-7 items-center justify-center rounded-lg text-white transition-colors hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-40"
-                        aria-label="Увеличить масштаб"
-                      >
-                        <ZoomIn className="h-4 w-4" />
-                      </button>
-                    </div>
-                  ) : null}
+                        }
+                      }}
+                      disabled={!isZoomed}
+                      title={isZoomed ? 'Сбросить масштаб' : undefined}
+                      className="min-w-[2.6rem] rounded-lg px-1 text-center text-[11px] font-semibold text-white/90 tabular-nums transition-colors hover:enabled:bg-white/20 disabled:cursor-default"
+                    >
+                      {Math.round(zoom * 100)}%
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        stepZoom(ZOOM_STEP);
+                        revealControls();
+                      }}
+                      disabled={zoom >= MAX_ZOOM}
+                      className="flex h-7 w-7 items-center justify-center rounded-lg text-white transition-colors hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-40"
+                      aria-label="Увеличить масштаб"
+                    >
+                      <ZoomIn className="h-4 w-4" />
+                    </button>
+                  </div>
 
                   <button
                     type="button"

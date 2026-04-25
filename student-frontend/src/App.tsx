@@ -1,9 +1,12 @@
 import { Suspense, lazy, useEffect, type ReactNode } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from './store/authStore';
-import { setOnUnauthorized } from './lib/api';
+import { pingSession, setOnUnauthorized } from './lib/api';
 import { studentQueryClient } from './lib/queryClient';
 import { clearActiveTestSnapshot } from './lib/activeTestStorage';
+import { SessionTakenOverModal } from './components/SessionTakenOverModal';
+
+const SESSION_HEARTBEAT_INTERVAL_MS = 30_000;
 
 const LoginPage = lazy(() => import('./pages/LoginPage'));
 const DashboardPage = lazy(() => import('./pages/DashboardPage'));
@@ -42,7 +45,7 @@ function App() {
   const isAuthenticated = Boolean(token && student);
 
   useEffect(() => {
-    setOnUnauthorized((failedToken) => {
+    setOnUnauthorized((failedToken, reason) => {
       const currentToken = useAuthStore.getState().token;
       if (currentToken && currentToken !== failedToken) {
         // A newer token exists — a concurrent request already refreshed it.
@@ -51,6 +54,11 @@ function App() {
       }
       clearActiveTestSnapshot();
       studentQueryClient.removeQueries({ queryKey: ['student'] });
+      if (reason === 'taken_over') {
+        // Set the banner before logout so SessionTakenOverModal renders
+        // alongside the redirect to /login.
+        useAuthStore.getState().setLogoutReason('taken_over');
+      }
       logout();
       // Soft redirect — ProtectedRoute will handle the <Navigate to="/login" />.
       // No hard reload needed; this preserves React state and avoids
@@ -64,8 +72,22 @@ function App() {
     }
   }, [hasHydrated, isAuthenticated]);
 
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    // 30s heartbeat: lets an idle device notice that another device
+    // displaced its session. A 401 SESSION_TAKEN_OVER from the server
+    // flows through setOnUnauthorized and surfaces the modal.
+    const interval = window.setInterval(() => {
+      void pingSession().catch(() => {
+        // Errors are handled by setOnUnauthorized; nothing to do here.
+      });
+    }, SESSION_HEARTBEAT_INTERVAL_MS);
+    return () => window.clearInterval(interval);
+  }, [isAuthenticated]);
+
   return (
     <BrowserRouter>
+      <SessionTakenOverModal />
       <Suspense
         fallback={<AuthLoadingScreen />}
       >
