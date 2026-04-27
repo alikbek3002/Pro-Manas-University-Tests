@@ -365,6 +365,7 @@ export interface TestHistoryQuestion {
   options: Array<{ text: string }>;
   topic: string;
   image_url: string;
+  explanation: string;
   selected_index: number;
   correct_index: number;
   is_correct: boolean;

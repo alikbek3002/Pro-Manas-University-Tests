@@ -873,17 +873,29 @@ export default function TestPage() {
               })}
 
               {currentReveal ? (
-                <div
-                  className={`mt-2 rounded-xl border-2 px-3 py-2.5 text-sm font-semibold ${
-                    currentReveal.is_correct
-                      ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
-                      : 'border-red-200 bg-red-50 text-red-800'
-                  }`}
-                >
-                  {currentReveal.is_correct
-                    ? localizeUi(student?.language, 'Правильно!', 'Туура!')
-                    : localizeUi(student?.language, 'Неправильно', 'Туура эмес')}
-                </div>
+                <>
+                  <div
+                    className={`mt-2 rounded-xl border-2 px-3 py-2.5 text-sm font-semibold ${
+                      currentReveal.is_correct
+                        ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                        : 'border-red-200 bg-red-50 text-red-800'
+                    }`}
+                  >
+                    {currentReveal.is_correct
+                      ? localizeUi(student?.language, 'Правильно!', 'Туура!')
+                      : localizeUi(student?.language, 'Неправильно', 'Туура эмес')}
+                  </div>
+                  {!currentReveal.is_correct && currentReveal.explanation?.trim() ? (
+                    <div className="mt-2 rounded-xl border-2 border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-900">
+                      <p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-amber-700">
+                        {localizeUi(student?.language, 'Пояснение', 'Түшүндүрмө')}
+                      </p>
+                      <div className="leading-relaxed">
+                        <MarkdownRenderer content={currentReveal.explanation} />
+                      </div>
+                    </div>
+                  ) : null}
+                </>
               ) : null}
             </div>
           </div>

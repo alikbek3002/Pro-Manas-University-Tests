@@ -293,6 +293,16 @@ export default function TestHistoryPage() {
                                     })}
                                   </div>
                                 )}
+                                {!q.is_correct && q.explanation?.trim() ? (
+                                  <div className="ml-9 mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5">
+                                    <p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-amber-700">
+                                      {localizeUi(student?.language, 'Пояснение', 'Түшүндүрмө')}
+                                    </p>
+                                    <div className="text-sm leading-relaxed text-amber-900">
+                                      <MarkdownRenderer content={q.explanation} />
+                                    </div>
+                                  </div>
+                                ) : null}
                               </div>
                             );
                           })}

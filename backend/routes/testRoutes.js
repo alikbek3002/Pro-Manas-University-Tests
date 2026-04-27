@@ -1726,6 +1726,7 @@ router.get('/history/:id', async (req, res) => {
         options: sanitizeOptionsForStudent(row?.options),
         topic: item.subject_title || '',
         image_url: row?.image_url || '',
+        explanation: row?.explanation || '',
         selected_index: answer?.selected_index ?? -1,
         correct_index: answer?.correct_index ?? -1,
         is_correct: Boolean(answer?.is_correct),
