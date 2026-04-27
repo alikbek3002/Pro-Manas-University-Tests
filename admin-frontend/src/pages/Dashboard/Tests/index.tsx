@@ -1,4 +1,4 @@
-import { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react';
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { Plus, Pencil, Trash2, Loader2, Search, ImagePlus, X, Save } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -114,6 +114,8 @@ export default function TestsPage() {
     }
   }, []);
 
+  const activeRequestRef = useRef<AbortController | null>(null);
+
   const loadQuestions = useCallback(async () => {
     if (!programCode || !subjectCode) {
       setQuestions([]);
@@ -121,19 +123,35 @@ export default function TestsPage() {
       return;
     }
 
+    // Отменяем предыдущий запрос: пока юзер допечатывает символ за символом,
+    // ответы по неполному префиксу не должны перезатереть результат
+    // последнего полного ввода.
+    activeRequestRef.current?.abort();
+    const controller = new AbortController();
+    activeRequestRef.current = controller;
+
     setListLoading(true);
     try {
-      const response = await fetchQuestions({
-        programCode,
-        subjectCode: subjectCode || undefined,
-        search: deferredSearch || undefined,
-      });
+      const response = await fetchQuestions(
+        {
+          programCode,
+          subjectCode: subjectCode || undefined,
+          search: deferredSearch || undefined,
+        },
+        controller.signal,
+      );
+      if (controller.signal.aborted) return;
       setQuestions(response.questions);
       setTotalCount(response.total);
     } catch (error) {
+      if (controller.signal.aborted) return;
+      if ((error as { name?: string })?.name === 'AbortError') return;
       toast.error(error instanceof Error ? error.message : 'Ошибка загрузки вопросов');
     } finally {
-      setListLoading(false);
+      if (activeRequestRef.current === controller) {
+        activeRequestRef.current = null;
+        setListLoading(false);
+      }
     }
   }, [deferredSearch, programCode, subjectCode]);
 
@@ -362,7 +380,11 @@ export default function TestsPage() {
           {listLoading ? (
             <div className="py-10 text-center text-muted-foreground">Загрузка вопросов...</div>
           ) : questions.length === 0 ? (
-            <div className="py-10 text-center text-muted-foreground">Вопросы не найдены</div>
+            <div className="py-10 text-center text-muted-foreground">
+              {/^[0-9a-fA-F-]{4,}$/.test(deferredSearch) && deferredSearch.includes('-') && deferredSearch.length < 36
+                ? 'Допишите ID полностью (36 символов с дефисами)'
+                : 'Вопросы не найдены'}
+            </div>
           ) : (
             <div className="space-y-4">
               {questions.map((question) => (

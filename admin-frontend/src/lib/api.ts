@@ -173,6 +173,7 @@ async function request<T>(
   method: RequestMethod,
   payload?: unknown,
   requireAuth = true,
+  signal?: AbortSignal,
 ): Promise<T> {
   const token = useAdminAuthStore.getState().token;
   if (requireAuth && !token) {
@@ -189,6 +190,7 @@ async function request<T>(
     method,
     headers,
     body: payload === undefined ? undefined : JSON.stringify(payload),
+    signal,
   });
 
   const text = await response.text();
@@ -293,12 +295,12 @@ export function addQuestion(payload: AddQuestionPayload) {
   return request('/admin/questions', 'POST', payload);
 }
 
-export async function fetchQuestions(params: FetchQuestionsParams) {
+export async function fetchQuestions(params: FetchQuestionsParams, signal?: AbortSignal) {
   const query = new URLSearchParams();
   query.set('programCode', params.programCode);
   if (params.subjectCode) query.set('subjectCode', params.subjectCode);
   if (params.search?.trim()) query.set('search', params.search.trim());
-  return request<QuestionsResponse>(`/admin/questions?${query.toString()}`, 'GET');
+  return request<QuestionsResponse>(`/admin/questions?${query.toString()}`, 'GET', undefined, true, signal);
 }
 
 export async function updateQuestion(

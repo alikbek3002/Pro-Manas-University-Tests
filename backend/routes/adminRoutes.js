@@ -1316,10 +1316,15 @@ router.get('/questions', requireAdmin, async (req, res) => {
       .order('created_at', { ascending: false });
 
     const uuidPattern = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+    const looksLikeUuidPrefix = /^[0-9a-fA-F-]{4,}$/.test(search) && /[-]/.test(search);
     let postFilterByOptions = '';
     if (search) {
       if (uuidPattern.test(search)) {
         query = query.eq('id', search);
+      } else if (looksLikeUuidPrefix) {
+        // Промежуточный частичный UUID — точечного фильтра нет, ждём полный ввод.
+        // Возвращаем пусто и не нагружаем БД полным сканированием options.
+        return res.json({ questions: [], table: tableName, total: 0 });
       } else {
         const safe = search.replace(/[(),]/g, ' ');
         query = query.or(`question_text.ilike.%${safe}%,explanation.ilike.%${safe}%`);
