@@ -12,6 +12,7 @@ import {
   Target,
   Trophy,
   HelpCircle,
+  Sparkles,
 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { testHistoryQueryOptions, availableTestsQueryOptions } from '../lib/studentQueries';
@@ -156,6 +157,42 @@ export default function DashboardPage() {
       )}
 
       <div className="space-y-6">
+        {student?.accountType === 'manas' && (
+          <div
+            onClick={() => navigate('/select/trial')}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => { if (e.key === 'Enter') navigate('/select/trial'); }}
+            className="group flex cursor-pointer items-center justify-between gap-4 rounded-2xl border border-emerald-200 bg-gradient-to-r from-emerald-50 to-white p-5 shadow-sm transition-all hover:shadow-md sm:p-6"
+          >
+            <div className="flex items-center gap-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700">
+                <Sparkles className="h-6 w-6" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-stone-900 sm:text-lg">
+                  {localizeUi(student?.language, 'Пробный тест', 'Сынамык тест')}
+                </h3>
+                <p className="mt-0.5 text-sm text-stone-500">
+                  {localizeUi(
+                    student?.language,
+                    'Один комплексный тест по всем предметам вашего трека',
+                    'Багытыңыздын бардык предметтери боюнча жалпы тест',
+                  )}
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              className="hidden h-10 items-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-bold text-white transition-colors hover:bg-emerald-700 sm:inline-flex"
+              onClick={(e) => { e.stopPropagation(); navigate('/select/trial'); }}
+            >
+              {localizeUi(student?.language, 'Начать', 'Баштоо')}
+              <ArrowRight className="h-4 w-4" />
+            </button>
+          </div>
+        )}
+
         {/* Top 4 Metric Cards */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Card

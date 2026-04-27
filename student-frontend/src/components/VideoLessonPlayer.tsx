@@ -1079,13 +1079,13 @@ export default function VideoLessonPlayer({
                     aria-label="Video volume"
                   />
 
-                  <div className="rounded-md bg-white/10 px-2 py-1 text-xs font-medium text-white/85">
+                  <div className="whitespace-nowrap rounded-md bg-white/10 px-2 py-1 text-[10px] font-medium tabular-nums text-white/85 sm:text-xs">
                     {formatTime(displayedTime)} / {formatTime(duration)}
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-1 rounded-xl border border-white/25 bg-white/10 px-1 py-1">
+                  <div className="hidden items-center gap-1 rounded-xl border border-white/25 bg-white/10 px-1 py-1 sm:flex">
                     <button
                       type="button"
                       onClick={(event) => {
@@ -1135,7 +1135,7 @@ export default function VideoLessonPlayer({
                       event.stopPropagation();
                       cyclePlaybackRate();
                     }}
-                    className="min-w-[3.25rem] rounded-xl border border-white/25 bg-white/10 px-2 py-2 text-xs font-semibold text-white transition-colors hover:bg-white/20"
+                    className="min-w-[2.5rem] rounded-xl border border-white/25 bg-white/10 px-2 py-2 text-xs font-semibold text-white transition-colors hover:bg-white/20 sm:min-w-[3.25rem]"
                     aria-label="Change playback speed"
                   >
                     {playbackRate}x

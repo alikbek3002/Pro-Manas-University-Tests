@@ -19,6 +19,7 @@ import {
   Menu,
   Sigma,
   ScrollText,
+  Sparkles,
   User,
   X,
 } from 'lucide-react';
@@ -236,6 +237,24 @@ export default function StudentLayout({ title, subtitle, children }: StudentLayo
                 <History className="h-4 w-4 shrink-0" />
                 {!collapsed && <span>{localizeUi(student?.language, 'История тестов', 'Тест тарыхы')}</span>}
               </button>
+              {student?.accountType === 'manas' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileOpen(false);
+                    navigate('/select/trial');
+                  }}
+                  className={cn(
+                    'flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition-colors',
+                    location.pathname === '/select/trial'
+                      ? 'bg-white/95 text-emerald-900 shadow-sm'
+                      : 'text-emerald-100 hover:bg-white/10 hover:text-white',
+                  )}
+                >
+                  <Sparkles className="h-4 w-4 shrink-0" />
+                  {!collapsed && <span>{localizeUi(student?.language, 'Сынамык тест', 'Сынамык тест')}</span>}
+                </button>
+              )}
             </div>
 
             <div className="mt-4 border-t border-emerald-700/70 pt-4">

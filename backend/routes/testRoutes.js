@@ -28,6 +28,11 @@ const router = express.Router();
 
 const QUESTIONS_PER_TEST = 30;
 const MAX_PARTS_UPPER_BOUND = 100;
+const TRIAL_LIMITS = { math: 24, kyrgyz_language: 24, default: 12 };
+
+function getTrialLimitForSubject(canonicalCode) {
+  return TRIAL_LIMITS[canonicalCode] ?? TRIAL_LIMITS.default;
+}
 const TOKEN_REFRESH_THRESHOLD_SECONDS = 300;
 const VIDEO_GRANT_TTL_SECONDS = Math.max(60, Number(process.env.VIDEO_GRANT_TTL_SECONDS) || 1800);
 const VIDEO_SEGMENT_GRANT_TTL_SECONDS = Math.max(30, Number(process.env.VIDEO_SEGMENT_GRANT_TTL_SECONDS) || 300);
@@ -100,6 +105,18 @@ function shuffle(items) {
     [next[i], next[j]] = [next[j], next[i]];
   }
   return next;
+}
+
+function buildTrialFetchPlan(programSubjects) {
+  const priority = ['math', 'kyrgyz_language'];
+  const head = priority
+    .map((code) => programSubjects.find((s) => s.code === code))
+    .filter(Boolean);
+  const tail = programSubjects.filter((s) => !priority.includes(s.code));
+  return [...head, ...tail].map((subject) => ({
+    subject,
+    limit: getTrialLimitForSubject(subject.code),
+  }));
 }
 
 function buildEmptyAnswersState(totalQuestions) {
@@ -608,6 +625,42 @@ async function getOrCreateTemplate({ programCode, subjectId, subjectCode, part }
   return created;
 }
 
+async function getOrCreateTrialTemplate({ program }) {
+  const safeCode = `${program.code}_trial_round_1`.replace(/[^a-zA-Z0-9_]/g, '_').toLowerCase();
+
+  const { data: existing, error: existingError } = await supabase
+    .from('uni_test_templates')
+    .select('id, code, title, program_code, subject_id, round_no, test_kind')
+    .eq('code', safeCode)
+    .maybeSingle();
+
+  if (existingError) throw existingError;
+  if (existing) return existing;
+
+  const payload = {
+    code: safeCode,
+    program_code: program.code,
+    subject_id: null,
+    title: 'Сынамык тест',
+    test_kind: 'trial_test',
+    round_no: 1,
+    is_active: true,
+    meta: { track: program.manas_track || null },
+  };
+
+  const { data: created, error: createError } = await supabase
+    .from('uni_test_templates')
+    .insert(payload)
+    .select('id, code, title, program_code, subject_id, round_no, test_kind')
+    .single();
+
+  if (createError || !created) {
+    throw createError || new Error('Failed to create trial template');
+  }
+
+  return created;
+}
+
 function mapStudentResponse(student, program, token) {
   return {
     token,
@@ -967,6 +1020,58 @@ router.get('/available', async (req, res) => {
       };
     });
 
+    let trialNode = {
+      id: 'TRIAL',
+      title: 'Сынамык тест',
+      status: 'locked',
+      rounds: [],
+    };
+
+    if (program.account_type === 'manas') {
+      const trialPlan = buildTrialFetchPlan(programSubjects);
+      const trialSubjects = trialPlan.map(({ subject, limit }) => {
+        const available = Number(questionCounts[subject.code] || 0);
+        const usable = Math.min(available, limit);
+        return {
+          id: subject.code,
+          title: subject.title,
+          display_name: subject.title,
+          required_total: limit,
+          available_total: usable,
+          status: usable > 0 ? 'ready' : 'locked',
+          lines: [
+            {
+              grade: 1,
+              required: limit,
+              available,
+              label: subject.title,
+              part_count: 1,
+              part_question_count: limit,
+              usable_question_total: usable,
+            },
+          ],
+        };
+      });
+      const requiredTotal = trialPlan.reduce((sum, p) => sum + p.limit, 0);
+      const availableTotal = trialSubjects.reduce((sum, s) => sum + s.available_total, 0);
+      const roundStatus = availableTotal > 0 ? 'ready' : 'locked';
+      trialNode = {
+        id: 'TRIAL',
+        title: 'Сынамык тест',
+        status: roundStatus,
+        rounds: [
+          {
+            id: 1,
+            title: 'Сынамык тест 1',
+            required_total: requiredTotal,
+            available_total: availableTotal,
+            status: roundStatus,
+            subjects: trialSubjects,
+          },
+        ],
+      };
+    }
+
     return res.json({
       student: {
         id: req.student.id,
@@ -989,12 +1094,7 @@ router.get('/available', async (req, res) => {
           status: items.some((item) => item.status === 'ready') ? 'ready' : 'locked',
           items,
         },
-        {
-          id: 'TRIAL',
-          title: 'Сынамык тест',
-          status: 'locked',
-          rounds: [],
-        },
+        trialNode,
       ],
     });
   } catch (error) {
@@ -1092,19 +1192,9 @@ router.post('/generate', async (req, res) => {
   try {
     const { type, subject, part } = req.body || {};
     const normalizedType = String(type || '').trim().toUpperCase();
-    const normalizedSubject = canonicalizeSubjectCode(subject);
-    const selectedPart = Number(part || 1);
 
-    if (normalizedType !== 'MAIN') {
-      return res.status(400).json({ error: 'Сейчас доступен только предметтик тест (MAIN)' });
-    }
-
-    if (!normalizedSubject) {
-      return res.status(400).json({ error: 'Invalid subject for MAIN test' });
-    }
-
-    if (!Number.isInteger(selectedPart) || selectedPart < 1 || selectedPart > MAX_PARTS_UPPER_BOUND) {
-      return res.status(400).json({ error: `part must be integer from 1 to ${MAX_PARTS_UPPER_BOUND}` });
+    if (!['MAIN', 'TRIAL'].includes(normalizedType)) {
+      return res.status(400).json({ error: 'Unsupported test type' });
     }
 
     const program = await getPrimaryProgram(req.student.id);
@@ -1116,6 +1206,120 @@ router.post('/generate', async (req, res) => {
     if (!programSubjects.length) {
       programSubjects = await getFallbackProgramSubjects(program);
     }
+
+    if (normalizedType === 'TRIAL') {
+      if (program.account_type !== 'manas') {
+        return res.status(403).json({ error: 'Пробный тест доступен только для направления Манас' });
+      }
+
+      const requestedRound = Number(req.body?.round ?? 1);
+      if (!Number.isInteger(requestedRound) || requestedRound !== 1) {
+        return res.status(400).json({ error: 'Currently only round=1 is supported for TRIAL' });
+      }
+
+      const template = await getOrCreateTrialTemplate({ program });
+      const plan = buildTrialFetchPlan(programSubjects);
+
+      const fetched = await Promise.all(plan.map(async ({ subject: subj, limit }) => {
+        const { data, error } = await supabase
+          .from(subj.tableName)
+          .select('id, subject_id, template_id, question_text, options, explanation, image_url, created_at')
+          .eq('subject_id', subj.id);
+        if (error) throw error;
+        return { subject: subj, limit, pool: data || [] };
+      }));
+
+      const items = [];
+      const questions = [];
+      const breakdown = {};
+
+      for (const { subject: subj, limit, pool } of fetched) {
+        if (!pool.length) continue;
+        const picked = shuffle(pool).slice(0, Math.min(limit, pool.length));
+        if (!picked.length) continue;
+        breakdown[subj.code] = { total: picked.length, by_grade: { 1: picked.length } };
+        for (const q of picked) {
+          const order = items.length;
+          items.push({
+            id: String(q.id),
+            table: subj.tableName,
+            subject_code: subj.code,
+            subject_title: subj.title,
+            order,
+          });
+          questions.push({
+            id: String(q.id),
+            text: q.question_text,
+            options: sanitizeOptionsForStudent(q.options),
+            topic: subj.title,
+            imageUrl: q.image_url || '',
+          });
+        }
+      }
+
+      if (questions.length === 0) {
+        return res.status(409).json({ error: 'Недостаточно вопросов для пробного теста' });
+      }
+
+      const generatedMeta = {
+        schema_version: 1,
+        type: 'TRIAL',
+        subject: null,
+        round: 1,
+        part: null,
+        program_code: program.code,
+        manas_track: program.manas_track || null,
+        items,
+      };
+
+      const answersState = buildEmptyAnswersState(questions.length);
+
+      const { data: createdSession, error: createSessionError } = await supabase
+        .from('uni_test_sessions')
+        .insert({
+          student_id: req.student.id,
+          template_id: template.id,
+          generated_questions: generatedMeta,
+          answers: answersState,
+          total_score: 0,
+          status: 'in_progress',
+        })
+        .select('id')
+        .single();
+
+      if (createSessionError || !createdSession) {
+        console.error('Create trial session error:', createSessionError);
+        return res.status(500).json({ error: 'Failed to create trial test session' });
+      }
+
+      return res.json({
+        test_session_id: createdSession.id,
+        test_info: {
+          type: 'TRIAL',
+          subject: null,
+          round: 1,
+          part: null,
+          language: 'ru',
+          grade: 1,
+          grade_window: [1, 1],
+        },
+        breakdown,
+        total_questions: questions.length,
+        questions,
+      });
+    }
+
+    const normalizedSubject = canonicalizeSubjectCode(subject);
+    const selectedPart = Number(part || 1);
+
+    if (!normalizedSubject) {
+      return res.status(400).json({ error: 'Invalid subject for MAIN test' });
+    }
+
+    if (!Number.isInteger(selectedPart) || selectedPart < 1 || selectedPart > MAX_PARTS_UPPER_BOUND) {
+      return res.status(400).json({ error: `part must be integer from 1 to ${MAX_PARTS_UPPER_BOUND}` });
+    }
+
     const subjectMeta = programSubjects.find((item) => item.code === normalizedSubject);
 
     if (!subjectMeta) {
@@ -1238,7 +1442,7 @@ router.post('/answer', async (req, res) => {
     const normalizedType = String(type || '').trim().toUpperCase();
     const selectedIndex = Number(selectedIndexRaw);
 
-    if (!sessionId || !questionId || normalizedType !== 'MAIN') {
+    if (!sessionId || !questionId || !['MAIN', 'TRIAL'].includes(normalizedType)) {
       return res.status(400).json({ error: 'Invalid answer payload' });
     }
 
@@ -1344,7 +1548,7 @@ router.post('/submit', async (req, res) => {
     const { test_session_id: sessionId, type } = req.body || {};
     const normalizedType = String(type || '').trim().toUpperCase();
 
-    if (!sessionId || normalizedType !== 'MAIN') {
+    if (!sessionId || !['MAIN', 'TRIAL'].includes(normalizedType)) {
       return res.status(400).json({ error: 'Invalid submit payload' });
     }
 
