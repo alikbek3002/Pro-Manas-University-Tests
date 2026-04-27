@@ -16,6 +16,7 @@ import {
 } from '@/lib/api';
 import { toast } from 'sonner';
 import { MarkdownRenderer } from '@/components/MarkdownRenderer';
+import { MathInput } from '@/components/MathInput';
 
 type QuestionFormState = {
   questionText: string;
@@ -341,7 +342,7 @@ export default function TestsPage() {
                 <Input
                   value={searchQuery}
                   onChange={(event) => setSearchQuery(event.target.value)}
-                  placeholder="По тексту вопроса"
+                  placeholder="Текст вопроса, вариант ответа или ID"
                   className="pl-9"
                 />
               </div>
@@ -367,12 +368,23 @@ export default function TestsPage() {
               {questions.map((question) => (
                 <div key={question.id} className="border border-border rounded-lg p-4 space-y-3">
                   <div className="flex items-start justify-between gap-4">
-                    <div className="space-y-1">
+                    <div className="space-y-1 min-w-0 flex-1">
                       <p className="text-xs text-muted-foreground">
                         {question.subject_title || question.subject_code || '—'}
                         {question.template_code ? ` • ${question.template_code}` : ''}
                         {` • ${formatDate(question.created_at)}`}
                       </p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          void navigator.clipboard?.writeText(question.id);
+                          toast.success('ID скопирован');
+                        }}
+                        className="font-mono text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+                        title="Скопировать ID для поиска"
+                      >
+                        ID: {question.id}
+                      </button>
                       <div className="text-sm text-foreground">
                         <MarkdownRenderer content={question.question_text} />
                       </div>
@@ -431,13 +443,16 @@ export default function TestsPage() {
               <form onSubmit={handleSubmit} className="p-5 space-y-4">
                 <div className="space-y-2">
                   <Label>Текст вопроса</Label>
-                  <textarea
+                  <MathInput
                     value={formData.questionText}
-                    onChange={(event) => setFormData((prev) => ({ ...prev, questionText: event.target.value }))}
+                    onChange={(next) => setFormData((prev) => ({ ...prev, questionText: next }))}
+                    multiline
                     rows={4}
-                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                    placeholder="Введите текст вопроса"
+                    placeholder="Введите текст вопроса. Для формул используйте кнопки выше или $\\frac{1}{2}$."
                   />
+                  <p className="text-xs text-muted-foreground">
+                    Формулы пишутся в долларах: <code>$\frac&#123;1&#125;&#123;2&#125;$</code>. Используйте кнопки выше — они вставляют шаблон в позицию курсора.
+                  </p>
                 </div>
 
                 <div className="grid gap-3 md:grid-cols-2">
@@ -447,9 +462,10 @@ export default function TestsPage() {
                     return (
                       <div key={letter} className="space-y-2">
                         <Label>Вариант {letter}</Label>
-                        <Input
+                        <MathInput
+                          compact
                           value={formData[key]}
-                          onChange={(event) => setFormData((prev) => ({ ...prev, [key]: event.target.value }))}
+                          onChange={(next) => setFormData((prev) => ({ ...prev, [key]: next }))}
                           placeholder={`Ответ ${letter}`}
                         />
                       </div>
@@ -499,11 +515,12 @@ export default function TestsPage() {
 
                 <div className="space-y-2">
                   <Label>Пояснение</Label>
-                  <textarea
+                  <MathInput
+                    compact
                     value={formData.explanation}
-                    onChange={(event) => setFormData((prev) => ({ ...prev, explanation: event.target.value }))}
+                    onChange={(next) => setFormData((prev) => ({ ...prev, explanation: next }))}
+                    multiline
                     rows={3}
-                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                     placeholder="Пояснение к ответу"
                   />
                 </div>

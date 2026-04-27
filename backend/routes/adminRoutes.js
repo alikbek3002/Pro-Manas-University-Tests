@@ -1316,7 +1316,16 @@ router.get('/questions', requireAdmin, async (req, res) => {
       .order('created_at', { ascending: false });
 
     if (search) {
-      query = query.or(`question_text.ilike.%${search}%,explanation.ilike.%${search}%`);
+      const uuidPattern = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+      if (uuidPattern.test(search)) {
+        query = query.eq('id', search);
+      } else {
+        // Escape PostgREST `or` separators that would break the filter expression.
+        const safe = search.replace(/[(),]/g, ' ');
+        query = query.or(
+          `question_text.ilike.%${safe}%,explanation.ilike.%${safe}%,options::text.ilike.%${safe}%`,
+        );
+      }
     }
 
     const { data: questions, error } = await query;
