@@ -1315,16 +1315,15 @@ router.get('/questions', requireAdmin, async (req, res) => {
       .eq('subject_id', subject.id)
       .order('created_at', { ascending: false });
 
+    const uuidPattern = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+    let postFilterByOptions = '';
     if (search) {
-      const uuidPattern = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
       if (uuidPattern.test(search)) {
         query = query.eq('id', search);
       } else {
-        // Escape PostgREST `or` separators that would break the filter expression.
         const safe = search.replace(/[(),]/g, ' ');
-        query = query.or(
-          `question_text.ilike.%${safe}%,explanation.ilike.%${safe}%,options::text.ilike.%${safe}%`,
-        );
+        query = query.or(`question_text.ilike.%${safe}%,explanation.ilike.%${safe}%`);
+        postFilterByOptions = search.toLowerCase();
       }
     }
 
@@ -1334,7 +1333,34 @@ router.get('/questions', requireAdmin, async (req, res) => {
       return res.status(500).json({ error: 'Failed to fetch questions' });
     }
 
-    const templateIds = [...new Set((questions || []).map((q) => q.template_id).filter(Boolean))];
+    // PostgREST не умеет ilike по jsonb-полю через `or`, поэтому поиск
+    // по тексту вариантов делаем in-memory: добираем строки, чей options
+    // содержит подстроку, и объединяем с уже найденными по тексту/пояснению.
+    let combined = questions || [];
+    if (postFilterByOptions) {
+      const { data: allRows, error: allErr } = await supabase
+        .from(tableName)
+        .select('id, subject_id, template_id, lesson_id, question_text, options, explanation, image_url, tags, created_at')
+        .eq('subject_id', subject.id);
+      if (allErr) {
+        console.error('Fetch questions (options scan) error:', allErr);
+        return res.status(500).json({ error: 'Failed to scan options for search' });
+      }
+      const matchedIds = new Set(combined.map((q) => q.id));
+      const needle = postFilterByOptions;
+      for (const row of allRows || []) {
+        if (matchedIds.has(row.id)) continue;
+        const opts = Array.isArray(row.options) ? row.options : [];
+        const inOpts = opts.some((o) => String(o?.text || '').toLowerCase().includes(needle));
+        if (inOpts) {
+          combined.push(row);
+          matchedIds.add(row.id);
+        }
+      }
+      combined.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    }
+
+    const templateIds = [...new Set(combined.map((q) => q.template_id).filter(Boolean))];
     const { data: templates, error: templatesError } = templateIds.length
       ? await supabase
         .from('uni_test_templates')
@@ -1350,7 +1376,7 @@ router.get('/questions', requireAdmin, async (req, res) => {
     const templateById = new Map((templates || []).map((t) => [t.id, t]));
     const programMap = await getProgramsByCode();
 
-    const mapped = (questions || []).map((question) => {
+    const mapped = combined.map((question) => {
       const template = templateById.get(question.template_id);
       const templateProgramCode = template?.program_code || programCode;
       const program = programMap.get(templateProgramCode);
