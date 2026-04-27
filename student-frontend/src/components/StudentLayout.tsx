@@ -143,25 +143,25 @@ export default function StudentLayout({ title, subtitle, children }: StudentLayo
 
         <aside
           className={cn(
-            'fixed inset-y-0 left-0 z-50 flex w-72 shrink-0 flex-col border-r border-emerald-900/40 bg-gradient-to-b from-emerald-800 via-emerald-800 to-emerald-900 text-white shadow-xl transition-all lg:static lg:shadow-none',
+            'fixed inset-y-0 left-0 z-50 flex w-72 shrink-0 flex-col border-r border-stone-200 bg-white text-stone-700 shadow-xl transition-all lg:static lg:shadow-none',
             mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
             collapsed && 'lg:w-20',
           )}
         >
-          <div className="flex items-center justify-between border-b border-emerald-700/70 px-4 py-4">
+          <div className="flex items-center justify-between border-b border-stone-200 px-4 py-4">
             <button
               type="button"
               onClick={() => navigate('/dashboard')}
               className="flex items-center gap-3"
             >
               <img src={logo} alt="ProManas" className="h-9 w-auto" decoding="async" />
-              {!collapsed && <span className="text-sm font-black tracking-wide text-white">ProManas</span>}
+              {!collapsed && <span className="text-sm font-black tracking-wide text-stone-900">ProManas</span>}
             </button>
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => setCollapsed((prev) => !prev)}
-                className="hidden h-8 w-8 items-center justify-center rounded-lg border border-emerald-600 text-emerald-100 hover:bg-white/10 hover:text-white lg:flex"
+                className="hidden h-8 w-8 items-center justify-center rounded-lg border border-stone-200 text-stone-500 hover:bg-emerald-50 hover:text-emerald-700 lg:flex"
                 aria-label="Collapse sidebar"
               >
                 {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
@@ -169,7 +169,7 @@ export default function StudentLayout({ title, subtitle, children }: StudentLayo
               <button
                 type="button"
                 onClick={() => setMobileOpen(false)}
-                className="flex h-8 w-8 items-center justify-center rounded-lg border border-emerald-600 text-emerald-100 hover:bg-white/10 hover:text-white lg:hidden"
+                className="flex h-8 w-8 items-center justify-center rounded-lg border border-stone-200 text-stone-500 hover:bg-emerald-50 hover:text-emerald-700 lg:hidden"
                 aria-label="Close sidebar"
               >
                 <X className="h-4 w-4" />
@@ -177,22 +177,22 @@ export default function StudentLayout({ title, subtitle, children }: StudentLayo
             </div>
           </div>
 
-          <div className="border-b border-emerald-700/70 px-4 py-4">
+          <div className="border-b border-stone-200 px-4 py-4">
             <div className="flex items-start gap-3">
-              <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-700/80 text-emerald-100">
+              <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
                 <User className="h-4 w-4" />
               </div>
               {!collapsed && (
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-bold text-white">{student?.fullName || '—'}</p>
-                  <p className="mt-0.5 text-xs text-emerald-100">
+                  <p className="truncate text-sm font-bold text-stone-900">{student?.fullName || '—'}</p>
+                  <p className="mt-0.5 text-xs text-stone-500">
                     {localizeUi(student?.language, `Курс: ${student?.grade || 1}`, `Курс: ${student?.grade || 1}`)}
                   </p>
-                  <p className="text-xs text-emerald-100">
+                  <p className="text-xs text-stone-500">
                     {accountTypeLabel(student?.language, student?.accountType)}
                     {student?.manasTrack ? ` · ${manasTrackLabel(student?.language, student?.manasTrack)}` : ''}
                   </p>
-                  <p className="mt-1 text-xs text-emerald-200/80">@{student?.username}</p>
+                  <p className="mt-1 text-xs text-stone-400">@{student?.username}</p>
                 </div>
               )}
             </div>
@@ -201,7 +201,7 @@ export default function StudentLayout({ title, subtitle, children }: StudentLayo
           <nav className="flex-1 overflow-y-auto px-3 py-4">
             <div className="space-y-1">
               {!collapsed && (
-                <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-wide text-emerald-200/90">
+                <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-wide text-stone-400">
                   {localizeUi(student?.language, 'Навигация', 'Навигация')}
                 </p>
               )}
@@ -214,8 +214,8 @@ export default function StudentLayout({ title, subtitle, children }: StudentLayo
                 className={cn(
                   'flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition-colors',
                   location.pathname === '/dashboard'
-                    ? 'bg-white/95 text-emerald-900 shadow-sm'
-                    : 'text-emerald-100 hover:bg-white/10 hover:text-white',
+                    ? 'bg-emerald-600 text-white shadow-sm hover:bg-emerald-600'
+                    : 'text-stone-600 hover:bg-emerald-50 hover:text-emerald-700',
                 )}
               >
                 <LayoutDashboard className="h-4 w-4 shrink-0" />
@@ -230,8 +230,8 @@ export default function StudentLayout({ title, subtitle, children }: StudentLayo
                 className={cn(
                   'flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition-colors',
                   location.pathname === '/history'
-                    ? 'bg-white/95 text-emerald-900 shadow-sm'
-                    : 'text-emerald-100 hover:bg-white/10 hover:text-white',
+                    ? 'bg-emerald-600 text-white shadow-sm hover:bg-emerald-600'
+                    : 'text-stone-600 hover:bg-emerald-50 hover:text-emerald-700',
                 )}
               >
                 <History className="h-4 w-4 shrink-0" />
@@ -247,8 +247,8 @@ export default function StudentLayout({ title, subtitle, children }: StudentLayo
                   className={cn(
                     'flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition-colors',
                     location.pathname === '/select/trial'
-                      ? 'bg-white/95 text-emerald-900 shadow-sm'
-                      : 'text-emerald-100 hover:bg-white/10 hover:text-white',
+                      ? 'bg-emerald-600 text-white shadow-sm hover:bg-emerald-600'
+                      : 'text-stone-600 hover:bg-emerald-50 hover:text-emerald-700',
                   )}
                 >
                   <Sparkles className="h-4 w-4 shrink-0" />
@@ -257,9 +257,9 @@ export default function StudentLayout({ title, subtitle, children }: StudentLayo
               )}
             </div>
 
-            <div className="mt-4 border-t border-emerald-700/70 pt-4">
+            <div className="mt-4 border-t border-stone-200 pt-4">
               {!collapsed && (
-                <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-wide text-emerald-200/90">
+                <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-wide text-stone-400">
                   {localizeUi(student?.language, 'Предметы', 'Предметтер')}
                 </p>
               )}
@@ -278,8 +278,8 @@ export default function StudentLayout({ title, subtitle, children }: StudentLayo
                       className={cn(
                         'flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition-colors',
                         location.pathname === '/select/main' && currentSubject === subject.id
-                          ? 'bg-white/95 text-emerald-900 shadow-sm'
-                          : 'text-emerald-100 hover:bg-white/10 hover:text-white',
+                          ? 'bg-emerald-600 text-white shadow-sm hover:bg-emerald-600'
+                          : 'text-stone-600 hover:bg-emerald-50 hover:text-emerald-700',
                       )}
                       title={subject.title}
                     >
@@ -292,11 +292,11 @@ export default function StudentLayout({ title, subtitle, children }: StudentLayo
             </div>
           </nav>
 
-          <div className="border-t border-emerald-700/70 p-3">
+          <div className="border-t border-stone-200 p-3">
             <button
               type="button"
               onClick={onLogout}
-              className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-rose-100 transition-colors hover:bg-rose-500/20 hover:text-white"
+              className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-rose-600 transition-colors hover:bg-rose-50 hover:text-rose-700"
             >
               <LogOut className="h-4 w-4 shrink-0" />
               {!collapsed && <span>{localizeUi(student?.language, 'Выйти', 'Чыгуу')}</span>}

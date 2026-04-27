@@ -12,6 +12,8 @@ import {
   Check,
   Pencil,
   CalendarPlus,
+  Copy,
+  ClipboardCheck,
 } from 'lucide-react';
 import {
   Table,
@@ -49,6 +51,34 @@ const MANAS_TRACK_OPTIONS = [
   { value: 'exact_sciences', label: 'Точные науки' },
 ] as const;
 
+const CopyButton = ({ value, label }: { value: string; label: string }) => {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    if (!value) return;
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(true);
+      toast.success(`${label} скопирован`);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      toast.error('Не удалось скопировать');
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={handleCopy}
+      className="text-muted-foreground hover:text-emerald-600 transition-colors"
+      aria-label={`Скопировать ${label.toLowerCase()}`}
+      title={`Скопировать ${label.toLowerCase()}`}
+    >
+      {copied ? <ClipboardCheck className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4" />}
+    </button>
+  );
+};
+
 const PasswordCell = ({ password }: { password: string }) => {
   const [isVisible, setIsVisible] = useState(false);
 
@@ -64,6 +94,7 @@ const PasswordCell = ({ password }: { password: string }) => {
       >
         {isVisible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
       </button>
+      <CopyButton value={password} label="Пароль" />
     </div>
   );
 };
@@ -521,7 +552,12 @@ export default function StudentsPage() {
                     </div>
                     <div className="text-xs text-muted-foreground">{student.programCode || '—'}</div>
                   </TableCell>
-                  <TableCell className="font-mono text-sm">{student.username}</TableCell>
+                  <TableCell className="font-mono text-sm">
+                    <div className="flex items-center gap-2">
+                      <span>{student.username}</span>
+                      <CopyButton value={student.username} label="Логин" />
+                    </div>
+                  </TableCell>
                   <TableCell>
                     <PasswordCell password={student.password} />
                   </TableCell>
