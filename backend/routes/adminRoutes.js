@@ -266,6 +266,19 @@ function formatStudent(student, primaryProgram) {
   };
 }
 
+function stripManasMarker(explanation) {
+  if (!explanation) return '';
+  return String(explanation).replace(/\[MANAS_ONLY\]/g, '').trim();
+}
+
+function deriveTagsWithManas(question) {
+  const baseTags = Array.isArray(question?.tags) ? question.tags : [];
+  const hasMarker = String(question?.explanation || '').includes('[MANAS_ONLY]');
+  const tagSet = new Set(baseTags.map((t) => String(t).trim()).filter(Boolean));
+  if (hasMarker) tagSet.add('manas_only');
+  return [...tagSet];
+}
+
 function validateOptions(rawOptions) {
   const options = Array.isArray(rawOptions) ? rawOptions : [];
   if (options.length < 2) {
@@ -1390,10 +1403,10 @@ router.get('/questions', requireAdmin, async (req, res) => {
         id: question.id,
         question_text: question.question_text,
         options: Array.isArray(question.options) ? question.options : [],
-        explanation: question.explanation || '',
+        explanation: stripManasMarker(question.explanation),
         image_url: question.image_url || '',
         created_at: question.created_at,
-        tags: Array.isArray(question.tags) ? question.tags : [],
+        tags: deriveTagsWithManas(question),
         subject_code: canonicalCode,
         subject_title: subject.title,
         template_code: template?.code || null,
@@ -1455,10 +1468,10 @@ router.post('/questions', requireAdmin, async (req, res) => {
       subjectId: subject.id,
     });
 
-    const normalizedExplanation = String(explanation || '').trim();
+    const normalizedExplanation = stripManasMarker(explanation);
     const normalizedImageUrl = String(imageUrl || '').trim();
     const normalizedTags = Array.isArray(tags)
-      ? tags.map((tag) => String(tag).trim()).filter(Boolean)
+      ? [...new Set(tags.map((tag) => String(tag).trim()).filter(Boolean))]
       : [];
 
     const { data, error } = await supabase
@@ -1556,7 +1569,7 @@ router.patch('/questions/:id', requireAdmin, async (req, res) => {
     }
 
     if (explanation !== undefined) {
-      updates.explanation = String(explanation || '').trim();
+      updates.explanation = stripManasMarker(explanation);
     }
 
     if (imageUrl !== undefined) {
@@ -1565,7 +1578,7 @@ router.patch('/questions/:id', requireAdmin, async (req, res) => {
 
     if (tags !== undefined) {
       updates.tags = Array.isArray(tags)
-        ? tags.map((tag) => String(tag).trim()).filter(Boolean)
+        ? [...new Set(tags.map((tag) => String(tag).trim()).filter(Boolean))]
         : [];
     }
 

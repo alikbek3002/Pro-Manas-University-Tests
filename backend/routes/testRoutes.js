@@ -107,6 +107,18 @@ function shuffle(items) {
   return next;
 }
 
+function stripManasMarker(explanation) {
+  if (!explanation) return '';
+  return String(explanation).replace(/\[MANAS_ONLY\]/g, '').trim();
+}
+
+function isManasOnlyQuestion(row) {
+  if (!row) return false;
+  const tags = Array.isArray(row.tags) ? row.tags : [];
+  if (tags.includes('manas_only')) return true;
+  return String(row.explanation || '').includes('[MANAS_ONLY]');
+}
+
 function buildTrialFetchPlan(programSubjects) {
   const priority = ['math', 'kyrgyz_language'];
   const head = priority
@@ -1338,7 +1350,7 @@ router.post('/generate', async (req, res) => {
 
     const { data: subjectQuestions, error: subjectQuestionsError } = await supabase
       .from(subjectMeta.tableName)
-      .select('id, subject_id, template_id, question_text, options, explanation, image_url, created_at')
+      .select('id, subject_id, template_id, question_text, options, explanation, image_url, created_at, tags')
       .eq('subject_id', subjectMeta.id)
       .order('created_at', { ascending: true })
       .range(offset, offset + QUESTIONS_PER_TEST - 1);
@@ -1352,7 +1364,7 @@ router.post('/generate', async (req, res) => {
 
     // Изолируем вопросы Манаса от других направлений (например, меда)
     if (program.account_type !== 'manas') {
-      pool = pool.filter(q => !(q.explanation || '').includes('[MANAS_ONLY]'));
+      pool = pool.filter((q) => !isManasOnlyQuestion(q));
     }
 
     if (pool.length === 0) {
@@ -1532,7 +1544,7 @@ router.post('/answer', async (req, res) => {
     return res.json({
       is_correct: isCorrect,
       correct_index: correctIndex,
-      explanation: String(questionRow.explanation || ''),
+      explanation: stripManasMarker(questionRow.explanation),
       can_continue: true,
       answered_count: nextAnswers.answered_count,
       total_questions: items.length,
@@ -1726,7 +1738,7 @@ router.get('/history/:id', async (req, res) => {
         options: sanitizeOptionsForStudent(row?.options),
         topic: item.subject_title || '',
         image_url: row?.image_url || '',
-        explanation: row?.explanation || '',
+        explanation: stripManasMarker(row?.explanation),
         selected_index: answer?.selected_index ?? -1,
         correct_index: answer?.correct_index ?? -1,
         is_correct: Boolean(answer?.is_correct),

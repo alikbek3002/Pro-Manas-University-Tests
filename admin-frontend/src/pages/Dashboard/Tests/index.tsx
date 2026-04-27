@@ -29,6 +29,7 @@ type QuestionFormState = {
   imageUrl: string;
   templateCode: string;
   tags: string;
+  manasOnly: boolean;
 };
 
 const DEFAULT_FORM: QuestionFormState = {
@@ -42,6 +43,7 @@ const DEFAULT_FORM: QuestionFormState = {
   imageUrl: '',
   templateCode: '',
   tags: '',
+  manasOnly: false,
 };
 
 function formatDate(iso: string): string {
@@ -185,6 +187,9 @@ export default function TestsPage() {
   const openEditForm = (question: Question) => {
     const correctIndex = question.options.findIndex((option) => option.is_correct);
     setEditingQuestion(question);
+    const allTags = Array.isArray(question.tags) ? question.tags : [];
+    const manasOnly = allTags.includes('manas_only');
+    const visibleTags = allTags.filter((t) => t !== 'manas_only');
     setFormData({
       questionText: question.question_text,
       optionA: extractOption(question, 0),
@@ -195,7 +200,8 @@ export default function TestsPage() {
       explanation: question.explanation || '',
       imageUrl: question.image_url || '',
       templateCode: question.template_code || '',
-      tags: Array.isArray(question.tags) ? question.tags.join(', ') : '',
+      tags: visibleTags.join(', '),
+      manasOnly,
     });
     setFormOpen(true);
   };
@@ -246,6 +252,9 @@ export default function TestsPage() {
 
     setFormLoading(true);
     try {
+      const userTags = parseTags(formData.tags).filter((t) => t !== 'manas_only');
+      const finalTags = formData.manasOnly ? [...userTags, 'manas_only'] : userTags;
+
       const payload = {
         programCode,
         subjectCode,
@@ -254,7 +263,7 @@ export default function TestsPage() {
         explanation: formData.explanation.trim(),
         imageUrl: formData.imageUrl.trim(),
         templateCode: formData.templateCode.trim() || undefined,
-        tags: parseTags(formData.tags),
+        tags: finalTags,
       };
 
       if (editingQuestion) {
@@ -534,6 +543,21 @@ export default function TestsPage() {
                     />
                   </div>
                 </div>
+
+                <label className="flex items-start gap-3 rounded-lg border border-stone-200 bg-stone-50 px-3 py-2.5 cursor-pointer hover:bg-stone-100 transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={formData.manasOnly}
+                    onChange={(event) => setFormData((prev) => ({ ...prev, manasOnly: event.target.checked }))}
+                    className="mt-0.5 h-4 w-4 cursor-pointer accent-emerald-600"
+                  />
+                  <div className="flex-1">
+                    <span className="text-sm font-semibold text-stone-900">Только для направления Манас</span>
+                    <p className="text-xs text-stone-500 mt-0.5">
+                      Если включено — вопрос виден только студентам с account_type = manas. Не попадёт в тесты ОРТ/мед.
+                    </p>
+                  </div>
+                </label>
 
                 <div className="space-y-2">
                   <Label>Пояснение</Label>
