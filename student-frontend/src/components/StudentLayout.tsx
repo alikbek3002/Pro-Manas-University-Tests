@@ -69,6 +69,35 @@ const SUBJECT_ICON_MAP = {
   kyrgyz_literature: ScrollText,
 } as const;
 
+const SUBJECT_COLOR_MAP: Record<string, { active: string; iconBg: string; iconText: string; hoverBg: string; hoverText: string }> = {
+  math:              { active: 'bg-indigo-600',  iconBg: 'bg-indigo-100',  iconText: 'text-indigo-600',  hoverBg: 'hover:bg-indigo-50',  hoverText: 'hover:text-indigo-700' },
+  mathlogic:         { active: 'bg-pink-600',    iconBg: 'bg-pink-100',    iconText: 'text-pink-600',    hoverBg: 'hover:bg-pink-50',    hoverText: 'hover:text-pink-700' },
+  logic:             { active: 'bg-pink-600',    iconBg: 'bg-pink-100',    iconText: 'text-pink-600',    hoverBg: 'hover:bg-pink-50',    hoverText: 'hover:text-pink-700' },
+  physics:           { active: 'bg-orange-600',  iconBg: 'bg-orange-100',  iconText: 'text-orange-600',  hoverBg: 'hover:bg-orange-50',  hoverText: 'hover:text-orange-700' },
+  chemistry:         { active: 'bg-purple-600',  iconBg: 'bg-purple-100',  iconText: 'text-purple-600',  hoverBg: 'hover:bg-purple-50',  hoverText: 'hover:text-purple-700' },
+  biology:           { active: 'bg-green-600',   iconBg: 'bg-green-100',   iconText: 'text-green-600',   hoverBg: 'hover:bg-green-50',   hoverText: 'hover:text-green-700' },
+  geography:         { active: 'bg-sky-600',     iconBg: 'bg-sky-100',     iconText: 'text-sky-600',     hoverBg: 'hover:bg-sky-50',     hoverText: 'hover:text-sky-700' },
+  history:           { active: 'bg-emerald-600', iconBg: 'bg-emerald-100', iconText: 'text-emerald-600', hoverBg: 'hover:bg-emerald-50', hoverText: 'hover:text-emerald-700' },
+  english:           { active: 'bg-blue-600',    iconBg: 'bg-blue-100',    iconText: 'text-blue-600',    hoverBg: 'hover:bg-blue-50',    hoverText: 'hover:text-blue-700' },
+  russian:           { active: 'bg-rose-600',    iconBg: 'bg-rose-100',    iconText: 'text-rose-600',    hoverBg: 'hover:bg-rose-50',    hoverText: 'hover:text-rose-700' },
+  kyrgyz:            { active: 'bg-amber-600',   iconBg: 'bg-amber-100',   iconText: 'text-amber-600',   hoverBg: 'hover:bg-amber-50',   hoverText: 'hover:text-amber-700' },
+  kyrgyz_language:   { active: 'bg-amber-600',   iconBg: 'bg-amber-100',   iconText: 'text-amber-600',   hoverBg: 'hover:bg-amber-50',   hoverText: 'hover:text-amber-700' },
+  kyrgyz_literature: { active: 'bg-yellow-600',  iconBg: 'bg-yellow-100',  iconText: 'text-yellow-700',  hoverBg: 'hover:bg-yellow-50',  hoverText: 'hover:text-yellow-700' },
+};
+
+const DEFAULT_SUBJECT_COLORS = {
+  active: 'bg-stone-700',
+  iconBg: 'bg-stone-100',
+  iconText: 'text-stone-600',
+  hoverBg: 'hover:bg-stone-100',
+  hoverText: 'hover:text-stone-900',
+};
+
+function resolveSubjectColors(subjectId: string) {
+  const normalizedId = String(subjectId || '').trim().toLowerCase();
+  return SUBJECT_COLOR_MAP[normalizedId] || DEFAULT_SUBJECT_COLORS;
+}
+
 function resolveSubjectIcon(subjectId: string, subjectTitle: string) {
   const normalizedId = String(subjectId || '').trim().toLowerCase();
   if (normalizedId && normalizedId in SUBJECT_ICON_MAP) {
@@ -215,10 +244,19 @@ export default function StudentLayout({ title, subtitle, children }: StudentLayo
                   'flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition-colors',
                   location.pathname === '/dashboard'
                     ? 'bg-emerald-600 text-white shadow-sm hover:bg-emerald-600'
-                    : 'text-stone-600 hover:bg-emerald-50 hover:text-emerald-700',
+                    : 'text-stone-700 hover:bg-emerald-50 hover:text-emerald-700',
                 )}
               >
-                <LayoutDashboard className="h-4 w-4 shrink-0" />
+                <span
+                  className={cn(
+                    'flex h-7 w-7 shrink-0 items-center justify-center rounded-lg',
+                    location.pathname === '/dashboard'
+                      ? 'bg-white/20 text-white'
+                      : 'bg-emerald-100 text-emerald-600',
+                  )}
+                >
+                  <LayoutDashboard className="h-4 w-4" />
+                </span>
                 {!collapsed && <span>{localizeUi(student?.language, 'Панель', 'Панель')}</span>}
               </button>
               <button
@@ -230,11 +268,20 @@ export default function StudentLayout({ title, subtitle, children }: StudentLayo
                 className={cn(
                   'flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition-colors',
                   location.pathname === '/history'
-                    ? 'bg-emerald-600 text-white shadow-sm hover:bg-emerald-600'
-                    : 'text-stone-600 hover:bg-emerald-50 hover:text-emerald-700',
+                    ? 'bg-indigo-600 text-white shadow-sm hover:bg-indigo-600'
+                    : 'text-stone-700 hover:bg-indigo-50 hover:text-indigo-700',
                 )}
               >
-                <History className="h-4 w-4 shrink-0" />
+                <span
+                  className={cn(
+                    'flex h-7 w-7 shrink-0 items-center justify-center rounded-lg',
+                    location.pathname === '/history'
+                      ? 'bg-white/20 text-white'
+                      : 'bg-indigo-100 text-indigo-600',
+                  )}
+                >
+                  <History className="h-4 w-4" />
+                </span>
                 {!collapsed && <span>{localizeUi(student?.language, 'История тестов', 'Тест тарыхы')}</span>}
               </button>
               {student?.accountType === 'manas' && (
@@ -247,11 +294,20 @@ export default function StudentLayout({ title, subtitle, children }: StudentLayo
                   className={cn(
                     'flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition-colors',
                     location.pathname === '/select/trial'
-                      ? 'bg-emerald-600 text-white shadow-sm hover:bg-emerald-600'
-                      : 'text-stone-600 hover:bg-emerald-50 hover:text-emerald-700',
+                      ? 'bg-amber-500 text-white shadow-sm hover:bg-amber-500'
+                      : 'text-stone-700 hover:bg-amber-50 hover:text-amber-700',
                   )}
                 >
-                  <Sparkles className="h-4 w-4 shrink-0" />
+                  <span
+                    className={cn(
+                      'flex h-7 w-7 shrink-0 items-center justify-center rounded-lg',
+                      location.pathname === '/select/trial'
+                        ? 'bg-white/20 text-white'
+                        : 'bg-amber-100 text-amber-600',
+                    )}
+                  >
+                    <Sparkles className="h-4 w-4" />
+                  </span>
                   {!collapsed && <span>{localizeUi(student?.language, 'Сынамык тест', 'Сынамык тест')}</span>}
                 </button>
               )}
@@ -266,6 +322,8 @@ export default function StudentLayout({ title, subtitle, children }: StudentLayo
               <div className="space-y-1">
                 {subjectItems.map((subject) => {
                   const SubjectIcon = resolveSubjectIcon(subject.id, subject.title);
+                  const colors = resolveSubjectColors(subject.id);
+                  const isActive = location.pathname === '/select/main' && currentSubject === subject.id;
 
                   return (
                     <button
@@ -276,14 +334,21 @@ export default function StudentLayout({ title, subtitle, children }: StudentLayo
                         navigate(`/select/main?subject=${encodeURIComponent(subject.id)}`);
                       }}
                       className={cn(
-                        'flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition-colors',
-                        location.pathname === '/select/main' && currentSubject === subject.id
-                          ? 'bg-emerald-600 text-white shadow-sm hover:bg-emerald-600'
-                          : 'text-stone-600 hover:bg-emerald-50 hover:text-emerald-700',
+                        'flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition-colors',
+                        isActive
+                          ? `${colors.active} text-white shadow-sm`
+                          : `text-stone-700 ${colors.hoverBg} ${colors.hoverText}`,
                       )}
                       title={subject.title}
                     >
-                      <SubjectIcon className="h-4 w-4 shrink-0" />
+                      <span
+                        className={cn(
+                          'flex h-7 w-7 shrink-0 items-center justify-center rounded-lg',
+                          isActive ? 'bg-white/20 text-white' : `${colors.iconBg} ${colors.iconText}`,
+                        )}
+                      >
+                        <SubjectIcon className="h-4 w-4" />
+                      </span>
                       {!collapsed && <span className="truncate">{subject.title}</span>}
                     </button>
                   );

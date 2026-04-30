@@ -199,6 +199,7 @@ export default function DashboardPage() {
             title={localizeUi(student?.language, 'Всего тестов', 'Бардык тесттер')}
             value={stats.totalTests.toString()}
             icon={<FileText className="h-5 w-5" />}
+            accent="indigo"
             trend={stats.totalTests > 0 ? 'up' : 'neutral'}
             trendText={localizeUi(student?.language, 'с начала года', 'жыл башынан бери')}
             onView={() => navigate('/history')}
@@ -208,6 +209,7 @@ export default function DashboardPage() {
             title={localizeUi(student?.language, 'Средний результат', 'Орточо жыйынтык')}
             value={`${stats.averageScore}%`}
             icon={<Target className="h-5 w-5" />}
+            accent="emerald"
             trend={stats.trend}
             trendText={localizeUi(student?.language, `${stats.trendDiff}% по сравнению со средним`, `орточодон ${stats.trendDiff}%`)}
             onView={() => navigate('/history')}
@@ -217,6 +219,7 @@ export default function DashboardPage() {
             title={localizeUi(student?.language, 'Лучший результат', 'Эң мыкты жыйынтык')}
             value={`${stats.bestScore}%`}
             icon={<Trophy className="h-5 w-5" />}
+            accent="amber"
             trend="up"
             trendText={localizeUi(student?.language, 'лучший тест', 'мыкты тест')}
             onView={() => navigate('/history')}
@@ -226,6 +229,7 @@ export default function DashboardPage() {
             title={localizeUi(student?.language, 'Вопросов отвечено', 'Жооп берилген суроолор')}
             value={stats.totalQuestions.toString()}
             icon={<HelpCircle className="h-5 w-5" />}
+            accent="rose"
             trend="up"
             trendText={localizeUi(student?.language, `${stats.totalCorrect} верных ответов`, `${stats.totalCorrect} туура жооп`)}
             onView={() => navigate('/history')}
@@ -404,27 +408,40 @@ export default function DashboardPage() {
 
 // Sub-components
 
-function Card({ 
-  title, 
-  value, 
-  icon, 
-  trend, 
-  trendText, 
-  onView, 
-  language 
-}: { 
-  title: string; 
-  value: string; 
-  icon: React.ReactNode; 
-  trend: 'up' | 'down' | 'neutral'; 
-  trendText: string; 
+type CardAccent = 'indigo' | 'emerald' | 'amber' | 'rose';
+
+const CARD_ACCENT_STYLES: Record<CardAccent, { bar: string; iconBg: string; iconText: string; ring: string; hover: string }> = {
+  indigo:  { bar: 'bg-indigo-500',  iconBg: 'bg-indigo-100',  iconText: 'text-indigo-600',  ring: 'ring-indigo-100',  hover: 'hover:text-indigo-600' },
+  emerald: { bar: 'bg-emerald-500', iconBg: 'bg-emerald-100', iconText: 'text-emerald-600', ring: 'ring-emerald-100', hover: 'hover:text-emerald-600' },
+  amber:   { bar: 'bg-amber-500',   iconBg: 'bg-amber-100',   iconText: 'text-amber-600',   ring: 'ring-amber-100',   hover: 'hover:text-amber-600' },
+  rose:    { bar: 'bg-rose-500',    iconBg: 'bg-rose-100',    iconText: 'text-rose-600',    ring: 'ring-rose-100',    hover: 'hover:text-rose-600' },
+};
+
+function Card({
+  title,
+  value,
+  icon,
+  accent,
+  trend,
+  trendText,
+  onView,
+  language
+}: {
+  title: string;
+  value: string;
+  icon: React.ReactNode;
+  accent: CardAccent;
+  trend: 'up' | 'down' | 'neutral';
+  trendText: string;
   onView: () => void;
   language?: 'ru' | 'kg';
 }) {
+  const styles = CARD_ACCENT_STYLES[accent];
   return (
-    <div className="relative flex flex-col rounded-2xl border border-stone-200 bg-white p-5 shadow-sm transition-all hover:shadow-md">
+    <div className="relative flex flex-col overflow-hidden rounded-2xl border border-stone-200 bg-white p-5 shadow-sm transition-all hover:shadow-md">
+      <div className={`absolute inset-x-0 top-0 h-1 ${styles.bar}`} />
       <div className="flex items-center justify-between text-stone-400">
-        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-stone-100/80 text-stone-600">
+        <div className={`flex h-10 w-10 items-center justify-center rounded-xl ring-4 ${styles.iconBg} ${styles.iconText} ${styles.ring}`}>
           {icon}
         </div>
         <button onClick={onView} className="rounded-full p-1 hover:bg-stone-100 transition-colors">
@@ -443,9 +460,9 @@ function Card({
           {trend === 'down' && <span className="flex items-center font-bold text-red-600"><TrendingDown className="mr-1 h-3.5 w-3.5" /> -</span>}
           <span className="text-stone-400">{trendText}</span>
         </div>
-        <button 
+        <button
           onClick={onView}
-          className="flex items-center text-sm font-semibold text-stone-900 hover:text-emerald-600 transition-colors"
+          className={`flex items-center text-sm font-semibold text-stone-900 transition-colors ${styles.hover}`}
         >
           {localizeUi(language, 'Подробнее', 'Кененирээк')} <ArrowRight className="ml-1 h-4 w-4" />
         </button>

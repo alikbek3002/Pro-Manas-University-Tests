@@ -1373,7 +1373,9 @@ router.post('/generate', async (req, res) => {
       });
     }
 
-    const questions = shuffle(pool).slice(0, QUESTIONS_PER_TEST);
+    const questions = normalizedSubject === 'math'
+      ? pool.slice(0, QUESTIONS_PER_TEST)
+      : shuffle(pool).slice(0, QUESTIONS_PER_TEST);
     const generatedMeta = {
       schema_version: 1,
       type: 'MAIN',
