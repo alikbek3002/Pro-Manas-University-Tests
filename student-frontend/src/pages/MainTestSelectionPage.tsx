@@ -313,55 +313,60 @@ export default function MainTestSelectionPage() {
           {selectedSubject && (
             <section className="rounded-2xl border border-stone-200 bg-white p-4 sm:p-5">
               <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <h2 className="text-base font-bold text-stone-900 sm:text-lg">
-                    {localizeUi(student?.language, '1. Статистика по предмету', '1. Предмет боюнча статистика')}
-                  </h2>
-                  <p className="text-sm text-stone-500">
-                    {selectedSubject.title}
-                  </p>
+                <div className="flex items-center gap-3">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-100 text-indigo-700">
+                    <BarChart3 className="h-5 w-5" />
+                  </span>
+                  <div>
+                    <h2 className="text-base font-black text-indigo-700 sm:text-lg">
+                      {localizeUi(student?.language, '1. Статистика по предмету', '1. Предмет боюнча статистика')}
+                    </h2>
+                    <p className="text-sm font-semibold text-stone-700">
+                      {selectedSubject.title}
+                    </p>
+                  </div>
                 </div>
-                <div className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+                <div className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-800">
                   {localizeUi(student?.language, 'Предмет выбирается слева', 'Предмет сол жактан тандалат')}
                 </div>
               </div>
 
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                <div className="rounded-xl border border-stone-200 bg-stone-50 p-4">
-                  <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-stone-500">
+                <div className="rounded-xl border border-indigo-100 bg-indigo-50 p-4">
+                  <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-indigo-700">
                     <BarChart3 className="h-4 w-4" />
                     <span>{localizeUi(student?.language, 'Пройдено тестов', 'Өтүлгөн тесттер')}</span>
                   </div>
                   <p className="mt-2 text-2xl font-black text-stone-900">{subjectStats.total}</p>
-                  <p className="mt-1 text-xs text-stone-500">
+                  <p className="mt-1 text-xs font-semibold text-stone-700">
                     {localizeUi(student?.language, 'Успешно (70%+)', 'Ийгиликтүү (70%+)')}: {subjectStats.passed}
                   </p>
                 </div>
 
-                <div className="rounded-xl border border-stone-200 bg-stone-50 p-4">
-                  <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-stone-500">
+                <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-4">
+                  <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-emerald-700">
                     <Target className="h-4 w-4" />
                     <span>{localizeUi(student?.language, 'Средний результат', 'Орточо жыйынтык')}</span>
                   </div>
                   <p className="mt-2 text-2xl font-black text-stone-900">{subjectStats.average}%</p>
-                  <p className="mt-1 text-xs text-stone-500">
+                  <p className="mt-1 text-xs font-semibold text-stone-700">
                     {localizeUi(student?.language, 'Точность ответов', 'Жооп тактыгы')}: {subjectStats.accuracy}%
                   </p>
                 </div>
 
-                <div className="rounded-xl border border-stone-200 bg-stone-50 p-4">
-                  <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-stone-500">
+                <div className="rounded-xl border border-amber-100 bg-amber-50 p-4">
+                  <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-amber-700">
                     <Sparkles className="h-4 w-4" />
                     <span>{localizeUi(student?.language, 'Лучший результат', 'Эң мыкты жыйынтык')}</span>
                   </div>
                   <p className="mt-2 text-2xl font-black text-stone-900">{subjectStats.best}%</p>
-                  <p className="mt-1 text-xs text-stone-500">
+                  <p className="mt-1 text-xs font-semibold text-stone-700">
                     {localizeUi(student?.language, 'Верных ответов', 'Туура жооптор')}: {subjectStats.totalCorrect}/{subjectStats.totalQuestions}
                   </p>
                 </div>
 
-                <div className="rounded-xl border border-stone-200 bg-stone-50 p-4">
-                  <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-stone-500">
+                <div className="rounded-xl border border-rose-100 bg-rose-50 p-4">
+                  <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-rose-700">
                     <CalendarClock className="h-4 w-4" />
                     <span>{localizeUi(student?.language, 'Последняя попытка', 'Акыркы аракет')}</span>
                   </div>
@@ -372,7 +377,7 @@ export default function MainTestSelectionPage() {
                         ? formatDateTime(subjectStats.lastAttempt.submitted_at, student?.language)
                         : localizeUi(student?.language, 'Пока нет попыток', 'Азырынча аракеттер жок')}
                   </p>
-                  <p className="mt-1 text-xs text-stone-500">
+                  <p className="mt-1 text-xs font-semibold text-stone-700">
                     {localizeUi(student?.language, 'Видеоуроков', 'Видео сабактар')}: {selectedSubject.playable_video_lesson_count || 0}/{selectedSubject.video_lesson_count || 0}
                   </p>
                 </div>
@@ -382,9 +387,14 @@ export default function MainTestSelectionPage() {
 
           {selectedSubject && (
             <section className="rounded-2xl border border-stone-200 bg-white p-4 sm:p-5">
-              <h2 className="mb-4 text-base font-bold text-stone-800 sm:text-lg">
-                {localizeUi(student?.language, '2. Набор тестов', '2. Тесттер топтому')}
-              </h2>
+              <div className="mb-4 flex items-center gap-3">
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
+                  <Target className="h-5 w-5" />
+                </span>
+                <h2 className="text-base font-black text-emerald-700 sm:text-lg">
+                  {localizeUi(student?.language, '2. Набор тестов', '2. Тесттер топтому')}
+                </h2>
+              </div>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {selectedSubject.lines.map((line) => {
                   const isSelected = selectedGrade === line.grade;
@@ -399,15 +409,15 @@ export default function MainTestSelectionPage() {
                       }}
                       className={`flex items-center gap-4 rounded-2xl border-2 p-4 transition-all active:scale-[0.98] ${
                         isSelected
-                          ? 'border-black bg-black text-white'
-                          : 'border-stone-200 bg-white hover:border-stone-400'
+                          ? 'border-emerald-700 bg-emerald-600 text-white shadow-md'
+                          : 'border-stone-200 bg-white hover:border-emerald-400 hover:bg-emerald-50'
                       }`}
                     >
                       <div
-                        className={`flex h-11 w-11 items-center justify-center rounded-xl border-2 text-lg font-black ${
+                        className={`flex h-11 w-11 items-center justify-center rounded-xl text-lg font-black ${
                           isSelected
-                            ? 'border-stone-700 bg-stone-800 text-white'
-                            : 'border-stone-200 bg-stone-50 text-stone-600'
+                            ? 'bg-white/20 text-white'
+                            : 'bg-emerald-100 text-emerald-700'
                         }`}
                       >
                         {line.grade}
@@ -416,10 +426,10 @@ export default function MainTestSelectionPage() {
                         <div className={`text-base font-bold ${isSelected ? 'text-white' : 'text-stone-900'}`}>
                           {line.label || localizeUi(student?.language, 'Предметный набор', 'Предметтик топтом')}
                         </div>
-                        <div className={`mt-1 text-xs font-medium ${isSelected ? 'text-stone-300' : 'text-stone-600'}`}>
+                        <div className={`mt-1 text-xs font-semibold ${isSelected ? 'text-emerald-50' : 'text-stone-700'}`}>
                           {meta.availableLabel}
                         </div>
-                        <div className={`text-xs font-medium ${isSelected ? 'text-stone-400' : 'text-stone-500'}`}>
+                        <div className={`text-xs font-semibold ${isSelected ? 'text-emerald-100' : 'text-stone-600'}`}>
                           {meta.usableLabel}
                         </div>
                       </div>
@@ -435,9 +445,9 @@ export default function MainTestSelectionPage() {
               <button
                 onClick={() => setIsPartModalOpen(true)}
                 disabled={generating}
-                className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-black px-6 text-sm font-bold text-white transition-all hover:opacity-90 disabled:opacity-50"
+                className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-6 text-sm font-bold text-white shadow-md transition-all hover:bg-emerald-700 disabled:opacity-50"
               >
-                <Sparkles className="h-4 w-4 text-stone-300" />
+                <Sparkles className="h-4 w-4 text-emerald-100" />
                 {localizeUi(student?.language, 'Выбрать часть теста', 'Тесттин бөлүгүн тандоо')}
               </button>
             </div>
@@ -446,19 +456,24 @@ export default function MainTestSelectionPage() {
           {selectedSubject && (
             <section className="rounded-2xl border border-stone-200 bg-white p-4 sm:p-5">
               <div className="mb-4 flex items-start justify-between gap-3">
-                <div>
-                  <h2 className="text-base font-bold text-stone-800 sm:text-lg">
-                    {localizeUi(student?.language, '3. Видеоуроки', '3. Видео сабактар')}
-                  </h2>
-                  <p className="text-sm text-stone-500">
-                    {localizeUi(
-                      student?.language,
-                      'Сначала статистика предмета, ниже удобный список уроков и просмотр в плеере.',
-                      'Алгач предмет статистикасы, төмөндө ыңгайлуу тизме жана плеер.',
-                    )}
-                  </p>
+                <div className="flex items-start gap-3">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-purple-100 text-purple-700">
+                    <Video className="h-5 w-5" />
+                  </span>
+                  <div>
+                    <h2 className="text-base font-black text-purple-700 sm:text-lg">
+                      {localizeUi(student?.language, '3. Видеоуроки', '3. Видео сабактар')}
+                    </h2>
+                    <p className="text-sm font-semibold text-stone-700">
+                      {localizeUi(
+                        student?.language,
+                        'Сначала статистика предмета, ниже удобный список уроков и просмотр в плеере.',
+                        'Алгач предмет статистикасы, төмөндө ыңгайлуу тизме жана плеер.',
+                      )}
+                    </p>
+                  </div>
                 </div>
-                <div className="rounded-full bg-stone-100 px-3 py-1 text-xs font-semibold text-stone-600">
+                <div className="rounded-full bg-purple-100 px-3 py-1 text-xs font-bold text-purple-800">
                   {videoLessons.length}
                 </div>
               </div>
@@ -501,12 +516,12 @@ export default function MainTestSelectionPage() {
                       </div>
                     ) : null}
                     {selectedVideoLesson && (
-                      <div className="rounded-2xl border border-stone-200 bg-stone-50 p-4">
-                        <div className="flex items-center gap-2 text-sm font-semibold text-stone-900">
-                          <Video className="h-4 w-4 text-stone-500" />
+                      <div className="rounded-2xl border border-purple-200 bg-purple-50 p-4">
+                        <div className="flex items-center gap-2 text-sm font-bold text-purple-900">
+                          <Video className="h-4 w-4 text-purple-600" />
                           <span>{selectedVideoLesson.title}</span>
                         </div>
-                        <p className="mt-2 text-xs text-stone-500">
+                        <p className="mt-2 text-xs font-semibold text-stone-700">
                           {localizeUi(
                             student?.language,
                             `Файл: ${selectedVideoLesson.filename} • ${formatDuration(selectedVideoLesson.durationSeconds, student?.language)}`,
@@ -525,10 +540,10 @@ export default function MainTestSelectionPage() {
                           key={lesson.id}
                           type="button"
                           onClick={() => handleSelectVideoLesson(lesson.id)}
-                          className={`w-full rounded-2xl border p-3 text-left transition-colors ${
+                          className={`w-full rounded-2xl border-2 p-3 text-left transition-colors ${
                             isSelected
-                              ? 'border-black bg-black text-white'
-                              : 'border-stone-200 bg-white hover:border-stone-400'
+                              ? 'border-purple-700 bg-purple-600 text-white shadow-md'
+                              : 'border-stone-200 bg-white hover:border-purple-400 hover:bg-purple-50'
                           }`}
                         >
                           <div className="flex items-start justify-between gap-3">
@@ -536,19 +551,19 @@ export default function MainTestSelectionPage() {
                               <p className={`text-sm font-bold ${isSelected ? 'text-white' : 'text-stone-900'}`}>
                                 {lesson.lessonNo ? `${lesson.lessonNo}. ` : ''}{lesson.title}
                               </p>
-                              <p className={`mt-1 text-xs ${isSelected ? 'text-stone-300' : 'text-stone-500'}`}>
+                              <p className={`mt-1 text-xs font-semibold ${isSelected ? 'text-purple-100' : 'text-stone-700'}`}>
                                 {formatDuration(lesson.durationSeconds, student?.language)}
                               </p>
                             </div>
                             <span
-                              className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                              className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${
                                 lesson.isPlayable
                                   ? isSelected
-                                    ? 'bg-stone-800 text-stone-200'
-                                    : 'bg-emerald-50 text-emerald-700'
+                                    ? 'bg-emerald-400 text-emerald-950'
+                                    : 'bg-emerald-100 text-emerald-800'
                                   : isSelected
-                                    ? 'bg-stone-800 text-stone-300'
-                                    : 'bg-amber-50 text-amber-700'
+                                    ? 'bg-amber-300 text-amber-950'
+                                    : 'bg-amber-100 text-amber-800'
                               }`}
                             >
                               {lesson.isPlayable
@@ -604,16 +619,16 @@ export default function MainTestSelectionPage() {
                       setIsPartModalOpen(false);
                       handleStartTest(part);
                     }}
-                    className="group flex items-center gap-4 rounded-2xl border-2 border-stone-100 p-4 transition-all hover:border-black hover:bg-stone-50 active:scale-[0.98]"
+                    className="group flex items-center gap-4 rounded-2xl border-2 border-emerald-100 p-4 transition-all hover:border-emerald-600 hover:bg-emerald-50 active:scale-[0.98]"
                   >
-                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-stone-100 text-xl font-black text-stone-400 transition-colors group-hover:bg-black group-hover:text-white">
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-xl font-black text-emerald-700 transition-colors group-hover:bg-emerald-600 group-hover:text-white">
                       {part}
                     </div>
                     <div className="text-left">
                       <div className="text-base font-bold leading-tight text-stone-900">
                         {localizeUi(student?.language, `Тест ${part}`, `Тест ${part}`)}
                       </div>
-                      <div className="text-xs font-medium text-stone-500 sm:text-sm">
+                      <div className="text-xs font-semibold text-stone-700 sm:text-sm">
                         {partQuestionCount} {localizeUi(student?.language, 'вопросов', 'суроо')}
                       </div>
                     </div>

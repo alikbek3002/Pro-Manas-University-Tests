@@ -4,6 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import {
   AlertCircle,
   ArrowRight,
+  BarChart3,
+  Activity,
   TrendingUp,
   TrendingDown,
   MoreHorizontal,
@@ -163,17 +165,17 @@ export default function DashboardPage() {
             role="button"
             tabIndex={0}
             onKeyDown={(e) => { if (e.key === 'Enter') navigate('/select/trial'); }}
-            className="group flex cursor-pointer items-center justify-between gap-4 rounded-2xl border border-emerald-200 bg-gradient-to-r from-emerald-50 to-white p-5 shadow-sm transition-all hover:shadow-md sm:p-6"
+            className="group flex cursor-pointer items-center justify-between gap-4 rounded-2xl border-2 border-amber-300 bg-gradient-to-r from-amber-50 to-white p-5 shadow-sm transition-all hover:shadow-md sm:p-6"
           >
             <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-amber-200 text-amber-800">
                 <Sparkles className="h-6 w-6" />
               </div>
               <div>
-                <h3 className="text-base font-bold text-stone-900 sm:text-lg">
+                <h3 className="text-base font-black text-amber-800 sm:text-lg">
                   {localizeUi(student?.language, 'Пробный тест', 'Сынамык тест')}
                 </h3>
-                <p className="mt-0.5 text-sm text-stone-500">
+                <p className="mt-0.5 text-sm font-semibold text-stone-700">
                   {localizeUi(
                     student?.language,
                     'Один комплексный тест по всем предметам вашего трека',
@@ -184,7 +186,7 @@ export default function DashboardPage() {
             </div>
             <button
               type="button"
-              className="hidden h-10 items-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-bold text-white transition-colors hover:bg-emerald-700 sm:inline-flex"
+              className="hidden h-10 items-center gap-2 rounded-xl bg-amber-500 px-4 text-sm font-bold text-white shadow-md transition-colors hover:bg-amber-600 sm:inline-flex"
               onClick={(e) => { e.stopPropagation(); navigate('/select/trial'); }}
             >
               {localizeUi(student?.language, 'Начать', 'Баштоо')}
@@ -242,9 +244,14 @@ export default function DashboardPage() {
           {/* Main Bar Chart */}
           <div className="col-span-1 lg:col-span-2 flex flex-col rounded-2xl border border-stone-200 bg-white p-5 sm:p-6 shadow-sm">
             <div className="flex items-center justify-between mb-8">
-              <div>
-                <h3 className="text-base font-bold text-stone-900">{localizeUi(student?.language, 'Статистика по предметам', 'Предметтер боюнча статистика')}</h3>
-                <p className="mt-1 text-sm text-stone-500">{localizeUi(student?.language, 'Средний балл по каждому предмету', 'Ар бир предмет боюнча орточо балл')}</p>
+              <div className="flex items-center gap-3">
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-100 text-indigo-700">
+                  <BarChart3 className="h-5 w-5" />
+                </span>
+                <div>
+                  <h3 className="text-base font-black text-indigo-700">{localizeUi(student?.language, 'Статистика по предметам', 'Предметтер боюнча статистика')}</h3>
+                  <p className="mt-1 text-sm font-semibold text-stone-700">{localizeUi(student?.language, 'Средний балл по каждому предмету', 'Ар бир предмет боюнча орточо балл')}</p>
+                </div>
               </div>
             </div>
             
@@ -283,8 +290,8 @@ export default function DashboardPage() {
 
           {/* Donut Chart */}
           <div className="col-span-1 flex flex-col items-center justify-center rounded-2xl border border-stone-200 bg-white p-5 sm:p-6 shadow-sm relative">
-            <h3 className="w-full text-center text-base font-bold text-stone-900 mb-1">{localizeUi(student?.language, 'Точность ответов', 'Жооптордун тактыгы')}</h3>
-            <p className="w-full text-center text-sm text-stone-500 mb-8">{localizeUi(student?.language, 'За всё время', 'Бардык убакытта')}</p>
+            <h3 className="w-full text-center text-base font-black text-emerald-700 mb-1">{localizeUi(student?.language, 'Точность ответов', 'Жооптордун тактыгы')}</h3>
+            <p className="w-full text-center text-sm font-semibold text-stone-700 mb-8">{localizeUi(student?.language, 'За всё время', 'Бардык убакытта')}</p>
             
             <div className="relative flex h-48 w-48 items-center justify-center">
               {stats.totalQuestions > 0 ? (
@@ -311,21 +318,21 @@ export default function DashboardPage() {
                   </svg>
                   <div className="absolute inset-0 flex flex-col items-center justify-center">
                     <span className="text-3xl font-black text-stone-900">{stats.accuracyPercent}%</span>
-                    <span className="text-xs font-semibold uppercase tracking-wider text-stone-400 mt-1">
+                    <span className="text-xs font-bold uppercase tracking-wider text-emerald-700 mt-1">
                       {localizeUi(student?.language, 'Правильно', 'Туура')}
                     </span>
                   </div>
                 </>
               ) : (
-                <div className="text-sm text-stone-400">{localizeUi(student?.language, 'Нет данных', 'Маалымат жок')}</div>
+                <div className="text-sm font-semibold text-stone-600">{localizeUi(student?.language, 'Нет данных', 'Маалымат жок')}</div>
               )}
             </div>
 
             <div className="mt-8 text-center">
-              <p className="text-sm font-semibold text-stone-900">
+              <p className="text-sm font-bold text-emerald-700">
                 {localizeUi(student?.language, 'Продолжайте в том же духе!', 'Ушундай уланта бериңиз!')}
               </p>
-              <p className="mt-1 text-xs text-stone-500">
+              <p className="mt-1 text-xs font-semibold text-stone-700">
                 {localizeUi(student?.language, `Изучено ${stats.totalQuestions} вопросов`, `${stats.totalQuestions} суроо изилденди`)}
               </p>
             </div>
@@ -335,63 +342,69 @@ export default function DashboardPage() {
         {/* Recent Activity Table */}
         <div className="rounded-2xl border border-stone-200 bg-white overflow-hidden shadow-sm">
           <div className="flex items-center justify-between border-b border-stone-100 p-5 sm:px-6">
-            <h3 className="text-base font-bold text-stone-900">{localizeUi(student?.language, 'Последняя активность', 'Акыркы аракеттер')}</h3>
+            <div className="flex items-center gap-3">
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-rose-100 text-rose-700">
+                <Activity className="h-5 w-5" />
+              </span>
+              <h3 className="text-base font-black text-rose-700">{localizeUi(student?.language, 'Последняя активность', 'Акыркы аракеттер')}</h3>
+            </div>
             <button
               onClick={() => navigate('/history')}
-              className="text-sm font-medium text-stone-500 hover:text-stone-900 transition-colors"
+              className="text-sm font-bold text-rose-600 hover:text-rose-800 transition-colors"
             >
               {localizeUi(student?.language, 'Смотреть всё', 'Баарын көрүү')} →
             </button>
           </div>
-          
+
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm text-stone-600">
-              <thead className="bg-stone-50/50 text-xs uppercase text-stone-500">
+            <table className="w-full text-left text-sm text-stone-700">
+              <thead className="bg-stone-100 text-xs uppercase text-stone-700">
                 <tr>
-                  <th className="px-5 py-4 sm:px-6 font-semibold">{localizeUi(student?.language, 'Тест / Направление', 'Тест / Багыт')}</th>
-                  <th className="px-5 py-4 sm:px-6 font-semibold">{localizeUi(student?.language, 'Статус', 'Статус')}</th>
-                  <th className="px-5 py-4 sm:px-6 font-semibold">{localizeUi(student?.language, 'ID Попытки', 'Аракет ID')}</th>
-                  <th className="px-5 py-4 sm:px-6 font-semibold">{localizeUi(student?.language, 'Дата', 'Дата')}</th>
-                  <th className="px-5 py-4 sm:px-6 font-semibold text-right">{localizeUi(student?.language, 'Результат', 'Жыйынтык')}</th>
+                  <th className="px-5 py-4 sm:px-6 font-bold">{localizeUi(student?.language, 'Тест / Направление', 'Тест / Багыт')}</th>
+                  <th className="px-5 py-4 sm:px-6 font-bold">{localizeUi(student?.language, 'Статус', 'Статус')}</th>
+                  <th className="px-5 py-4 sm:px-6 font-bold">{localizeUi(student?.language, 'ID Попытки', 'Аракет ID')}</th>
+                  <th className="px-5 py-4 sm:px-6 font-bold">{localizeUi(student?.language, 'Дата', 'Дата')}</th>
+                  <th className="px-5 py-4 sm:px-6 font-bold text-right">{localizeUi(student?.language, 'Результат', 'Жыйынтык')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-stone-100">
                 {recentActivity.length > 0 ? recentActivity.map((entry) => {
                   const subjectMeta = SUBJECT_MAP[entry.subject || ''] || { label: entry.subject || '', color: 'bg-stone-100 text-stone-700' };
                   const isPassed = entry.score_percent >= 70;
-                  
+                  const typeBg = entry.type === 'MAIN' ? 'bg-indigo-100 text-indigo-700' : 'bg-amber-100 text-amber-700';
+
                   return (
-                    <tr key={entry.id} className="transition-colors hover:bg-stone-50/50">
+                    <tr key={entry.id} className="transition-colors hover:bg-stone-50">
                       <td className="px-5 py-4 sm:px-6">
                         <div className="flex items-center gap-3">
-                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-stone-100 font-bold text-stone-500">
+                          <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full font-black ${typeBg}`}>
                             {entry.type === 'MAIN' ? 'M' : 'T'}
                           </div>
                           <div>
-                            <p className="font-semibold text-stone-900">{entry.type === 'MAIN' ? localizeUi(student?.language, 'Предметный тест', 'Предметтик тест') : localizeUi(student?.language, 'Сынамык тест', 'Сынамык тест')}</p>
-                            <p className="text-xs text-stone-500">{subjectMeta.label}</p>
+                            <p className="font-bold text-stone-900">{entry.type === 'MAIN' ? localizeUi(student?.language, 'Предметный тест', 'Предметтик тест') : localizeUi(student?.language, 'Сынамык тест', 'Сынамык тест')}</p>
+                            <p className={`text-xs font-bold inline-flex rounded px-1.5 py-0.5 mt-0.5 ${subjectMeta.color}`}>{subjectMeta.label}</p>
                           </div>
                         </div>
                       </td>
                       <td className="px-5 py-4 sm:px-6">
-                        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${isPassed ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}`}>
+                        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold ${isPassed ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}`}>
                           {isPassed ? localizeUi(student?.language, 'Успешно', 'Ийгиликтүү') : localizeUi(student?.language, 'Не сдан', 'Өткөн жок')}
                         </span>
                       </td>
-                      <td className="px-5 py-4 sm:px-6 font-mono text-xs text-stone-400">
+                      <td className="px-5 py-4 sm:px-6 font-mono text-xs font-semibold text-stone-600">
                         #{entry.id.substring(0, 6)}
                       </td>
-                      <td className="px-5 py-4 sm:px-6">
+                      <td className="px-5 py-4 sm:px-6 font-semibold">
                         {formatRelativeTime(entry.submitted_at, student?.language)}
                       </td>
-                      <td className="px-5 py-4 sm:px-6 text-right font-bold text-stone-900">
+                      <td className={`px-5 py-4 sm:px-6 text-right font-black ${isPassed ? 'text-emerald-700' : 'text-red-600'}`}>
                         {entry.score_percent}%
                       </td>
                     </tr>
                   );
                 }) : (
                   <tr>
-                    <td colSpan={5} className="px-5 py-12 text-center text-sm text-stone-400">
+                    <td colSpan={5} className="px-5 py-12 text-center text-sm font-semibold text-stone-600">
                       {localizeUi(student?.language, 'История тестов пуста. Пройдите первый тест, чтобы увидеть результаты.', 'Тест тарыхы бош. Натыйжаларды көрүү үчүн биринчи тесттен өтүңүз.')}
                     </td>
                   </tr>
@@ -450,7 +463,7 @@ function Card({
       </div>
 
       <div className="mt-4">
-        <h3 className="text-sm font-medium text-stone-500">{title}</h3>
+        <h3 className="text-sm font-bold text-stone-700">{title}</h3>
         <p className="mt-1 text-3xl font-black text-stone-900">{value}</p>
       </div>
 
@@ -458,7 +471,7 @@ function Card({
         <div className="flex items-center gap-1.5 text-xs">
           {trend === 'up' && <span className="flex items-center font-bold text-emerald-600"><TrendingUp className="mr-1 h-3.5 w-3.5" /> +</span>}
           {trend === 'down' && <span className="flex items-center font-bold text-red-600"><TrendingDown className="mr-1 h-3.5 w-3.5" /> -</span>}
-          <span className="text-stone-400">{trendText}</span>
+          <span className="font-semibold text-stone-600">{trendText}</span>
         </div>
         <button
           onClick={onView}

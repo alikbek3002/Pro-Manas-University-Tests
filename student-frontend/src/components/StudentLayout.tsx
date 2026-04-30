@@ -69,28 +69,28 @@ const SUBJECT_ICON_MAP = {
   kyrgyz_literature: ScrollText,
 } as const;
 
-const SUBJECT_COLOR_MAP: Record<string, { active: string; iconBg: string; iconText: string; hoverBg: string; hoverText: string }> = {
-  math:              { active: 'bg-indigo-600',  iconBg: 'bg-indigo-100',  iconText: 'text-indigo-600',  hoverBg: 'hover:bg-indigo-50',  hoverText: 'hover:text-indigo-700' },
-  mathlogic:         { active: 'bg-pink-600',    iconBg: 'bg-pink-100',    iconText: 'text-pink-600',    hoverBg: 'hover:bg-pink-50',    hoverText: 'hover:text-pink-700' },
-  logic:             { active: 'bg-pink-600',    iconBg: 'bg-pink-100',    iconText: 'text-pink-600',    hoverBg: 'hover:bg-pink-50',    hoverText: 'hover:text-pink-700' },
-  physics:           { active: 'bg-orange-600',  iconBg: 'bg-orange-100',  iconText: 'text-orange-600',  hoverBg: 'hover:bg-orange-50',  hoverText: 'hover:text-orange-700' },
-  chemistry:         { active: 'bg-purple-600',  iconBg: 'bg-purple-100',  iconText: 'text-purple-600',  hoverBg: 'hover:bg-purple-50',  hoverText: 'hover:text-purple-700' },
-  biology:           { active: 'bg-green-600',   iconBg: 'bg-green-100',   iconText: 'text-green-600',   hoverBg: 'hover:bg-green-50',   hoverText: 'hover:text-green-700' },
-  geography:         { active: 'bg-sky-600',     iconBg: 'bg-sky-100',     iconText: 'text-sky-600',     hoverBg: 'hover:bg-sky-50',     hoverText: 'hover:text-sky-700' },
-  history:           { active: 'bg-emerald-600', iconBg: 'bg-emerald-100', iconText: 'text-emerald-600', hoverBg: 'hover:bg-emerald-50', hoverText: 'hover:text-emerald-700' },
-  english:           { active: 'bg-blue-600',    iconBg: 'bg-blue-100',    iconText: 'text-blue-600',    hoverBg: 'hover:bg-blue-50',    hoverText: 'hover:text-blue-700' },
-  russian:           { active: 'bg-rose-600',    iconBg: 'bg-rose-100',    iconText: 'text-rose-600',    hoverBg: 'hover:bg-rose-50',    hoverText: 'hover:text-rose-700' },
-  kyrgyz:            { active: 'bg-amber-600',   iconBg: 'bg-amber-100',   iconText: 'text-amber-600',   hoverBg: 'hover:bg-amber-50',   hoverText: 'hover:text-amber-700' },
-  kyrgyz_language:   { active: 'bg-amber-600',   iconBg: 'bg-amber-100',   iconText: 'text-amber-600',   hoverBg: 'hover:bg-amber-50',   hoverText: 'hover:text-amber-700' },
-  kyrgyz_literature: { active: 'bg-yellow-600',  iconBg: 'bg-yellow-100',  iconText: 'text-yellow-700',  hoverBg: 'hover:bg-yellow-50',  hoverText: 'hover:text-yellow-700' },
+const SUBJECT_COLOR_MAP: Record<string, { active: string; iconBg: string; iconText: string; text: string; hoverBg: string }> = {
+  math:              { active: 'bg-indigo-600',  iconBg: 'bg-indigo-100',  iconText: 'text-indigo-700',  text: 'text-indigo-700',  hoverBg: 'hover:bg-indigo-50' },
+  mathlogic:         { active: 'bg-pink-600',    iconBg: 'bg-pink-100',    iconText: 'text-pink-700',    text: 'text-pink-700',    hoverBg: 'hover:bg-pink-50' },
+  logic:             { active: 'bg-pink-600',    iconBg: 'bg-pink-100',    iconText: 'text-pink-700',    text: 'text-pink-700',    hoverBg: 'hover:bg-pink-50' },
+  physics:           { active: 'bg-orange-600',  iconBg: 'bg-orange-100',  iconText: 'text-orange-700',  text: 'text-orange-700',  hoverBg: 'hover:bg-orange-50' },
+  chemistry:         { active: 'bg-purple-600',  iconBg: 'bg-purple-100',  iconText: 'text-purple-700',  text: 'text-purple-700',  hoverBg: 'hover:bg-purple-50' },
+  biology:           { active: 'bg-green-600',   iconBg: 'bg-green-100',   iconText: 'text-green-700',   text: 'text-green-700',   hoverBg: 'hover:bg-green-50' },
+  geography:         { active: 'bg-sky-600',     iconBg: 'bg-sky-100',     iconText: 'text-sky-700',     text: 'text-sky-700',     hoverBg: 'hover:bg-sky-50' },
+  history:           { active: 'bg-emerald-600', iconBg: 'bg-emerald-100', iconText: 'text-emerald-700', text: 'text-emerald-700', hoverBg: 'hover:bg-emerald-50' },
+  english:           { active: 'bg-blue-600',    iconBg: 'bg-blue-100',    iconText: 'text-blue-700',    text: 'text-blue-700',    hoverBg: 'hover:bg-blue-50' },
+  russian:           { active: 'bg-rose-600',    iconBg: 'bg-rose-100',    iconText: 'text-rose-700',    text: 'text-rose-700',    hoverBg: 'hover:bg-rose-50' },
+  kyrgyz:            { active: 'bg-amber-600',   iconBg: 'bg-amber-100',   iconText: 'text-amber-800',   text: 'text-amber-800',   hoverBg: 'hover:bg-amber-50' },
+  kyrgyz_language:   { active: 'bg-amber-600',   iconBg: 'bg-amber-100',   iconText: 'text-amber-800',   text: 'text-amber-800',   hoverBg: 'hover:bg-amber-50' },
+  kyrgyz_literature: { active: 'bg-yellow-600',  iconBg: 'bg-yellow-100',  iconText: 'text-yellow-800',  text: 'text-yellow-800',  hoverBg: 'hover:bg-yellow-50' },
 };
 
 const DEFAULT_SUBJECT_COLORS = {
-  active: 'bg-stone-700',
+  active: 'bg-stone-800',
   iconBg: 'bg-stone-100',
-  iconText: 'text-stone-600',
+  iconText: 'text-stone-700',
+  text: 'text-stone-800',
   hoverBg: 'hover:bg-stone-100',
-  hoverText: 'hover:text-stone-900',
 };
 
 function resolveSubjectColors(subjectId: string) {
@@ -214,14 +214,14 @@ export default function StudentLayout({ title, subtitle, children }: StudentLayo
               {!collapsed && (
                 <div className="min-w-0">
                   <p className="truncate text-sm font-bold text-stone-900">{student?.fullName || '—'}</p>
-                  <p className="mt-0.5 text-xs text-stone-500">
+                  <p className="mt-0.5 text-xs font-semibold text-stone-700">
                     {localizeUi(student?.language, `Курс: ${student?.grade || 1}`, `Курс: ${student?.grade || 1}`)}
                   </p>
-                  <p className="text-xs text-stone-500">
+                  <p className="text-xs font-semibold text-stone-700">
                     {accountTypeLabel(student?.language, student?.accountType)}
                     {student?.manasTrack ? ` · ${manasTrackLabel(student?.language, student?.manasTrack)}` : ''}
                   </p>
-                  <p className="mt-1 text-xs text-stone-400">@{student?.username}</p>
+                  <p className="mt-1 text-xs text-stone-500">@{student?.username}</p>
                 </div>
               )}
             </div>
@@ -230,7 +230,7 @@ export default function StudentLayout({ title, subtitle, children }: StudentLayo
           <nav className="flex-1 overflow-y-auto px-3 py-4">
             <div className="space-y-1">
               {!collapsed && (
-                <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-wide text-stone-400">
+                <p className="px-3 pb-2 text-[11px] font-bold uppercase tracking-wide text-stone-500">
                   {localizeUi(student?.language, 'Навигация', 'Навигация')}
                 </p>
               )}
@@ -241,10 +241,10 @@ export default function StudentLayout({ title, subtitle, children }: StudentLayo
                   navigate('/dashboard');
                 }}
                 className={cn(
-                  'flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition-colors',
+                  'flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-bold transition-colors',
                   location.pathname === '/dashboard'
                     ? 'bg-emerald-600 text-white shadow-sm hover:bg-emerald-600'
-                    : 'text-stone-700 hover:bg-emerald-50 hover:text-emerald-700',
+                    : 'text-emerald-700 hover:bg-emerald-50',
                 )}
               >
                 <span
@@ -252,7 +252,7 @@ export default function StudentLayout({ title, subtitle, children }: StudentLayo
                     'flex h-7 w-7 shrink-0 items-center justify-center rounded-lg',
                     location.pathname === '/dashboard'
                       ? 'bg-white/20 text-white'
-                      : 'bg-emerald-100 text-emerald-600',
+                      : 'bg-emerald-100 text-emerald-700',
                   )}
                 >
                   <LayoutDashboard className="h-4 w-4" />
@@ -266,10 +266,10 @@ export default function StudentLayout({ title, subtitle, children }: StudentLayo
                   navigate('/history');
                 }}
                 className={cn(
-                  'flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition-colors',
+                  'flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-bold transition-colors',
                   location.pathname === '/history'
                     ? 'bg-indigo-600 text-white shadow-sm hover:bg-indigo-600'
-                    : 'text-stone-700 hover:bg-indigo-50 hover:text-indigo-700',
+                    : 'text-indigo-700 hover:bg-indigo-50',
                 )}
               >
                 <span
@@ -277,7 +277,7 @@ export default function StudentLayout({ title, subtitle, children }: StudentLayo
                     'flex h-7 w-7 shrink-0 items-center justify-center rounded-lg',
                     location.pathname === '/history'
                       ? 'bg-white/20 text-white'
-                      : 'bg-indigo-100 text-indigo-600',
+                      : 'bg-indigo-100 text-indigo-700',
                   )}
                 >
                   <History className="h-4 w-4" />
@@ -292,10 +292,10 @@ export default function StudentLayout({ title, subtitle, children }: StudentLayo
                     navigate('/select/trial');
                   }}
                   className={cn(
-                    'flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition-colors',
+                    'flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-bold transition-colors',
                     location.pathname === '/select/trial'
                       ? 'bg-amber-500 text-white shadow-sm hover:bg-amber-500'
-                      : 'text-stone-700 hover:bg-amber-50 hover:text-amber-700',
+                      : 'text-amber-700 hover:bg-amber-50',
                   )}
                 >
                   <span
@@ -303,7 +303,7 @@ export default function StudentLayout({ title, subtitle, children }: StudentLayo
                       'flex h-7 w-7 shrink-0 items-center justify-center rounded-lg',
                       location.pathname === '/select/trial'
                         ? 'bg-white/20 text-white'
-                        : 'bg-amber-100 text-amber-600',
+                        : 'bg-amber-100 text-amber-700',
                     )}
                   >
                     <Sparkles className="h-4 w-4" />
@@ -315,7 +315,7 @@ export default function StudentLayout({ title, subtitle, children }: StudentLayo
 
             <div className="mt-4 border-t border-stone-200 pt-4">
               {!collapsed && (
-                <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-wide text-stone-400">
+                <p className="px-3 pb-2 text-[11px] font-bold uppercase tracking-wide text-stone-500">
                   {localizeUi(student?.language, 'Предметы', 'Предметтер')}
                 </p>
               )}
@@ -334,10 +334,10 @@ export default function StudentLayout({ title, subtitle, children }: StudentLayo
                         navigate(`/select/main?subject=${encodeURIComponent(subject.id)}`);
                       }}
                       className={cn(
-                        'flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition-colors',
+                        'flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-bold transition-colors',
                         isActive
                           ? `${colors.active} text-white shadow-sm`
-                          : `text-stone-700 ${colors.hoverBg} ${colors.hoverText}`,
+                          : `${colors.text} ${colors.hoverBg}`,
                       )}
                       title={subject.title}
                     >
@@ -381,8 +381,8 @@ export default function StudentLayout({ title, subtitle, children }: StudentLayo
                 <Menu className="h-4 w-4" />
               </button>
               <div className="min-w-0">
-                <h1 className="truncate text-lg font-bold text-stone-900 sm:text-xl">{title}</h1>
-                {subtitle ? <p className="truncate text-sm text-stone-500">{subtitle}</p> : null}
+                <h1 className="truncate text-lg font-black text-stone-900 sm:text-xl">{title}</h1>
+                {subtitle ? <p className="truncate text-sm font-semibold text-stone-700">{subtitle}</p> : null}
               </div>
             </div>
           </header>
