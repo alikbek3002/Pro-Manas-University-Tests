@@ -241,10 +241,10 @@ export default function StudentLayout({ title, subtitle, children }: StudentLayo
                   navigate('/dashboard');
                 }}
                 className={cn(
-                  'flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-bold transition-colors',
+                  'flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition-colors',
                   location.pathname === '/dashboard'
                     ? 'bg-emerald-600 text-white shadow-sm hover:bg-emerald-600'
-                    : 'text-emerald-700 hover:bg-emerald-50',
+                    : 'text-stone-900 hover:bg-stone-100',
                 )}
               >
                 <span
@@ -252,7 +252,7 @@ export default function StudentLayout({ title, subtitle, children }: StudentLayo
                     'flex h-7 w-7 shrink-0 items-center justify-center rounded-lg',
                     location.pathname === '/dashboard'
                       ? 'bg-white/20 text-white'
-                      : 'bg-emerald-100 text-emerald-700',
+                      : 'bg-stone-100 text-stone-700',
                   )}
                 >
                   <LayoutDashboard className="h-4 w-4" />
@@ -266,10 +266,10 @@ export default function StudentLayout({ title, subtitle, children }: StudentLayo
                   navigate('/history');
                 }}
                 className={cn(
-                  'flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-bold transition-colors',
+                  'flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition-colors',
                   location.pathname === '/history'
-                    ? 'bg-indigo-600 text-white shadow-sm hover:bg-indigo-600'
-                    : 'text-indigo-700 hover:bg-indigo-50',
+                    ? 'bg-emerald-600 text-white shadow-sm hover:bg-emerald-600'
+                    : 'text-stone-900 hover:bg-stone-100',
                 )}
               >
                 <span
@@ -277,7 +277,7 @@ export default function StudentLayout({ title, subtitle, children }: StudentLayo
                     'flex h-7 w-7 shrink-0 items-center justify-center rounded-lg',
                     location.pathname === '/history'
                       ? 'bg-white/20 text-white'
-                      : 'bg-indigo-100 text-indigo-700',
+                      : 'bg-stone-100 text-stone-700',
                   )}
                 >
                   <History className="h-4 w-4" />
@@ -292,10 +292,10 @@ export default function StudentLayout({ title, subtitle, children }: StudentLayo
                     navigate('/select/trial');
                   }}
                   className={cn(
-                    'flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-bold transition-colors',
+                    'flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition-colors',
                     location.pathname === '/select/trial'
-                      ? 'bg-amber-500 text-white shadow-sm hover:bg-amber-500'
-                      : 'text-amber-700 hover:bg-amber-50',
+                      ? 'bg-emerald-600 text-white shadow-sm hover:bg-emerald-600'
+                      : 'text-stone-900 hover:bg-stone-100',
                   )}
                 >
                   <span
@@ -303,7 +303,7 @@ export default function StudentLayout({ title, subtitle, children }: StudentLayo
                       'flex h-7 w-7 shrink-0 items-center justify-center rounded-lg',
                       location.pathname === '/select/trial'
                         ? 'bg-white/20 text-white'
-                        : 'bg-amber-100 text-amber-700',
+                        : 'bg-stone-100 text-stone-700',
                     )}
                   >
                     <Sparkles className="h-4 w-4" />
@@ -334,10 +334,10 @@ export default function StudentLayout({ title, subtitle, children }: StudentLayo
                         navigate(`/select/main?subject=${encodeURIComponent(subject.id)}`);
                       }}
                       className={cn(
-                        'flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-bold transition-colors',
+                        'flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition-colors',
                         isActive
-                          ? `${colors.active} text-white shadow-sm`
-                          : `${colors.text} ${colors.hoverBg}`,
+                          ? 'bg-emerald-600 text-white shadow-sm'
+                          : 'text-stone-900 hover:bg-stone-100',
                       )}
                       title={subject.title}
                     >

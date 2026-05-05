@@ -1,0 +1,502 @@
+[
+  {
+    "id": "eaf8b622-a24f-4d7a-805e-1d506183458b",
+    "subject_id": "13481e5a-36dd-4b26-81c2-4b2b37fb91bb",
+    "template_id": null,
+    "lesson_id": null,
+    "question_text": "Төмөнкү сандарды буруш бөлчөк түрүндө жазгыла. / Запишите в виде неправильной дроби числа.\n; ;",
+    "options": [
+      {
+        "text": "; ;",
+        "is_correct": false
+      },
+      {
+        "text": "; ;",
+        "is_correct": false
+      },
+      {
+        "text": "; ;",
+        "is_correct": false
+      },
+      {
+        "text": "; ;",
+        "is_correct": true
+      },
+      {
+        "text": "; ;",
+        "is_correct": false
+      }
+    ],
+    "explanation": "[MANAS_ONLY]",
+    "image_url": "",
+    "difficulty": null,
+    "tags": [],
+    "created_at": "2026-04-22T14:32:50.095725+00:00"
+  },
+  {
+    "id": "f5a566b6-5f6e-4c5c-a359-cdc017267998",
+    "subject_id": "13481e5a-36dd-4b26-81c2-4b2b37fb91bb",
+    "template_id": null,
+    "lesson_id": null,
+    "question_text": "Эгерде a = , b =  жана c =  болсо, анда a + b − c туюнтмасынын маанисин тапкыла жана аны аралаш бөлчөк түрүндө жазгыла. / Вычислить значение и выделить целую и дробную части выражения a + b − c, если a = ; b = ; c = .",
+    "options": [
+      {
+        "text": "1",
+        "is_correct": true
+      },
+      {
+        "text": "1",
+        "is_correct": false
+      },
+      {
+        "text": "1",
+        "is_correct": false
+      },
+      {
+        "text": "1",
+        "is_correct": false
+      },
+      {
+        "text": "1",
+        "is_correct": false
+      }
+    ],
+    "explanation": "[MANAS_ONLY]",
+    "image_url": "",
+    "difficulty": null,
+    "tags": [],
+    "created_at": "2026-04-22T14:32:50.095725+00:00"
+  },
+  {
+    "id": "1d20f8ca-4b7c-448d-a562-54e5da9a26a1",
+    "subject_id": "13481e5a-36dd-4b26-81c2-4b2b37fb91bb",
+    "template_id": null,
+    "lesson_id": null,
+    "question_text": "Эсептегиле. Вычислить.\n8  − 4",
+    "options": [
+      {
+        "text": "3",
+        "is_correct": false
+      },
+      {
+        "text": "3",
+        "is_correct": false
+      },
+      {
+        "text": "3",
+        "is_correct": false
+      },
+      {
+        "text": "3",
+        "is_correct": true
+      },
+      {
+        "text": "3",
+        "is_correct": false
+      }
+    ],
+    "explanation": "[MANAS_ONLY]",
+    "image_url": "",
+    "difficulty": null,
+    "tags": [],
+    "created_at": "2026-04-22T14:32:50.095725+00:00"
+  },
+  {
+    "id": "5c4b519c-424f-4350-8a46-78aa2bbaa74f",
+    "subject_id": "13481e5a-36dd-4b26-81c2-4b2b37fb91bb",
+    "template_id": null,
+    "lesson_id": null,
+    "question_text": "Бөлчөктөрдү кыскарткыла. / Сократите дроби , , .",
+    "options": [
+      {
+        "text": ", ,",
+        "is_correct": false
+      },
+      {
+        "text": ", ,",
+        "is_correct": false
+      },
+      {
+        "text": ", ,",
+        "is_correct": true
+      },
+      {
+        "text": ", ,",
+        "is_correct": false
+      },
+      {
+        "text": ", ,",
+        "is_correct": false
+      }
+    ],
+    "explanation": "[MANAS_ONLY]",
+    "image_url": "",
+    "difficulty": null,
+    "tags": [],
+    "created_at": "2026-04-22T14:32:50.331336+00:00"
+  },
+  {
+    "id": "a679757e-50bb-4177-a93e-a6bbbd4f81ca",
+    "subject_id": "13481e5a-36dd-4b26-81c2-4b2b37fb91bb",
+    "template_id": null,
+    "lesson_id": null,
+    "question_text": "Сумманы эсептегиле. / Вычислите сумму.\nа)\nб)\nв)",
+    "options": [
+      {
+        "text": "21",
+        "is_correct": false
+      },
+      {
+        "text": "0",
+        "is_correct": false
+      }
+    ],
+    "explanation": "[MANAS_ONLY]",
+    "image_url": "",
+    "difficulty": null,
+    "tags": [],
+    "created_at": "2026-04-22T14:32:50.331336+00:00"
+  },
+  {
+    "id": "d664c1b7-1a46-45ec-9651-7df82dbddb4f",
+    "subject_id": "13481e5a-36dd-4b26-81c2-4b2b37fb91bb",
+    "template_id": null,
+    "lesson_id": null,
+    "question_text": "Окшош кошулуучуларды топтогула. / Приведите подобные слагаемые.\nа)",
+    "options": [
+      {
+        "text": "0",
+        "is_correct": true
+      },
+      {
+        "text": "−2a",
+        "is_correct": false
+      },
+      {
+        "text": "48a",
+        "is_correct": false
+      },
+      {
+        "text": "42a",
+        "is_correct": false
+      }
+    ],
+    "explanation": "[MANAS_ONLY]",
+    "image_url": "",
+    "difficulty": null,
+    "tags": [],
+    "created_at": "2026-04-22T14:32:50.331336+00:00"
+  },
+  {
+    "id": "1382e753-63f7-4253-8ea3-569ccc3f4f99",
+    "subject_id": "13481e5a-36dd-4b26-81c2-4b2b37fb91bb",
+    "template_id": null,
+    "lesson_id": null,
+    "question_text": "ABC үч бурчтугунун B жана C чокуларындагы сырткы бурчтарынын биссектрисаларын камтыган түз сызыктар O чекитинде кесилишет. Эгерде ∠A = α болсо, BOC бурчун тапкыла. / Прямые, содержащие биссектрисы внешних углов при вершинах B и C треугольника ABC, пересекаются в точке O. Найдите угол BOC, если угол A равен α.\nа)",
+    "options": [
+      {
+        "text": "90° + α",
+        "is_correct": false
+      },
+      {
+        "text": "4α г) д)",
+        "is_correct": false
+      }
+    ],
+    "explanation": "[MANAS_ONLY]",
+    "image_url": "",
+    "difficulty": null,
+    "tags": [],
+    "created_at": "2026-04-22T14:32:50.775978+00:00"
+  },
+  {
+    "id": "493d4c7d-6a3c-4623-a9e5-602a0ca1936b",
+    "subject_id": "13481e5a-36dd-4b26-81c2-4b2b37fb91bb",
+    "template_id": null,
+    "lesson_id": null,
+    "question_text": "Теңдемени чыгаргыла. / Решить уравнение.\nа)",
+    "options": [
+      {
+        "text": "(-4)",
+        "is_correct": false
+      },
+      {
+        "text": "()",
+        "is_correct": false
+      },
+      {
+        "text": "4 д)",
+        "is_correct": false
+      }
+    ],
+    "explanation": "[MANAS_ONLY]",
+    "image_url": "",
+    "difficulty": null,
+    "tags": [],
+    "created_at": "2026-04-22T14:32:51.003324+00:00"
+  },
+  {
+    "id": "3070dc25-d9ed-4bf7-9ed0-2aa56ca2a959",
+    "subject_id": "13481e5a-36dd-4b26-81c2-4b2b37fb91bb",
+    "template_id": null,
+    "lesson_id": null,
+    "question_text": "Эсептегиле. / Вычислить.\n[\n\\frac{$\\sqrt[3]{5}-\\sqrt[3]{9}$$\\sqrt{32}-\\sqrt8$^2}{\\sqrt[3]{40}-\\sqrt[3]{72}}\n]",
+    "options": [
+      {
+        "text": "2",
+        "is_correct": false
+      },
+      {
+        "text": "4",
+        "is_correct": true
+      },
+      {
+        "text": "6",
+        "is_correct": false
+      },
+      {
+        "text": "9",
+        "is_correct": false
+      },
+      {
+        "text": "8",
+        "is_correct": false
+      }
+    ],
+    "explanation": "[MANAS_ONLY]",
+    "image_url": "",
+    "difficulty": null,
+    "tags": [],
+    "created_at": "2026-04-22T14:32:51.935337+00:00"
+  },
+  {
+    "id": "b8b69d5d-86e3-4829-a3bc-c0ce90c51b1f",
+    "subject_id": "13481e5a-36dd-4b26-81c2-4b2b37fb91bb",
+    "template_id": null,
+    "lesson_id": null,
+    "question_text": "Эсептегиле. / Вычислить.\n[\n\\frac{$\\sqrt{45}-\\sqrt{20}$$\\sqrt{12}+\\sqrt{75}$\\sqrt3}{\\sqrt5+\\sqrt{180}}\n]",
+    "options": [
+      {
+        "text": "2",
+        "is_correct": true
+      },
+      {
+        "text": "7",
+        "is_correct": false
+      },
+      {
+        "text": "$\\sqrt5$",
+        "is_correct": false
+      },
+      {
+        "text": "3",
+        "is_correct": false
+      },
+      {
+        "text": "24",
+        "is_correct": false
+      }
+    ],
+    "explanation": "[MANAS_ONLY]",
+    "image_url": "",
+    "difficulty": null,
+    "tags": [],
+    "created_at": "2026-04-22T14:32:51.935337+00:00"
+  },
+  {
+    "id": "57b2c9f8-061d-4d56-b8a4-fdbdd26c1820",
+    "subject_id": "13481e5a-36dd-4b26-81c2-4b2b37fb91bb",
+    "template_id": null,
+    "lesson_id": null,
+    "question_text": "Эсептегиле. / Вычислить.\n[\n\\left$$\\left$\\frac{1}{3^{\\frac{1}{4}}}\\right$^8+\\left$\\frac{3}{2}\\right$^0\\right$$^{-1}\n]",
+    "options": [
+      {
+        "text": "0,5",
+        "is_correct": false
+      },
+      {
+        "text": "1",
+        "is_correct": false
+      },
+      {
+        "text": "2",
+        "is_correct": false
+      },
+      {
+        "text": "0,1",
+        "is_correct": true
+      },
+      {
+        "text": "0,9",
+        "is_correct": false
+      }
+    ],
+    "explanation": "[MANAS_ONLY]",
+    "image_url": "",
+    "difficulty": null,
+    "tags": [],
+    "created_at": "2026-04-22T14:32:51.935337+00:00"
+  },
+  {
+    "id": "ca60be1b-5d4a-42c7-8a03-279b0c2b280e",
+    "subject_id": "13481e5a-36dd-4b26-81c2-4b2b37fb91bb",
+    "template_id": null,
+    "lesson_id": null,
+    "question_text": "$\\vec a$ жана $\\vec b$ векторлорунун арасындагы бурч $\\varphi=\\frac{2\\pi}{3}$ ге барабар. $|\\vec a|=3,\\ |\\vec b|=4$ экендигин пайдаланып, ($3\\vec a-2\\vec b$$\\vec a+2\\vec b$) скалярдык көбөйтүндүсүн тапкыла. / Угол между векторами $\\vec a$ и $\\vec b$ равен $\\varphi=\\frac{2\\pi}{3}$. Зная, что $|\\vec a|=3,\\ |\\vec b|=4$, найдите скалярное произведение ($3\\vec a-2\\vec b$$\\vec a+2\\vec b$).",
+    "options": [
+      {
+        "text": "60",
+        "is_correct": false
+      },
+      {
+        "text": "61",
+        "is_correct": false
+      },
+      {
+        "text": "−61",
+        "is_correct": true
+      },
+      {
+        "text": "59",
+        "is_correct": false
+      },
+      {
+        "text": "12",
+        "is_correct": false
+      }
+    ],
+    "explanation": "[MANAS_ONLY]",
+    "image_url": "",
+    "difficulty": null,
+    "tags": [],
+    "created_at": "2026-04-22T14:32:52.199022+00:00"
+  },
+  {
+    "id": "855b74d7-b80e-494b-8fc5-f5eed81c1dfd",
+    "subject_id": "13481e5a-36dd-4b26-81c2-4b2b37fb91bb",
+    "template_id": null,
+    "lesson_id": null,
+    "question_text": "$Тикбурчтуктун узундугу\\frac{4}{5}м,туурасы\\frac{1}{4}м.Тикбурчтуктун периметрин тапкыла.$\n$Длина прямоугольника\\frac{4}{5}м,ширина\\frac{1}{4}м.Найдите периметр прямоугольника.$",
+    "options": [
+      {
+        "text": "$1\\frac{1}{20}$ м",
+        "is_correct": false
+      },
+      {
+        "text": "$\\frac{21}{20}$м",
+        "is_correct": false
+      },
+      {
+        "text": "$\\frac{4}{20}$ м",
+        "is_correct": false
+      },
+      {
+        "text": "$2\\frac{1}{10}$м",
+        "is_correct": true
+      },
+      {
+        "text": "$\\frac{7}{9}$м $91-суроо:$ $Эсептегиле. Вычислите:$ $\\frac{9}{10}×\\frac{5}{6}×\\frac{40}{7}$ $а) \\frac{56}{42}$ $б) \\frac{54}{25}$ $в) 4\\frac{2}{7}$ $г) \\frac{7}{4}$ $д) 4\\frac{3}{7}$",
+        "is_correct": false
+      }
+    ],
+    "explanation": "[MANAS_ONLY]",
+    "image_url": "",
+    "difficulty": null,
+    "tags": [],
+    "created_at": "2026-04-22T14:39:26.807874+00:00"
+  },
+  {
+    "id": "20d7eb51-47cc-4d8d-91d7-da21612e61ee",
+    "subject_id": "13481e5a-36dd-4b26-81c2-4b2b37fb91bb",
+    "template_id": null,
+    "lesson_id": null,
+    "question_text": "Туюнтманы жөнөкөйлөткүлө жана параметрлердин берилген маанилеринде туюнтманын маанисин эсептегиле. / Упростить и вычислить значение выражения при заданных значениях параметров.\n$\\frac{m^{-2}n^{-1}-m^{-1}n^{-2}}{m^{-2}-n^{-2}}-\\frac{1}{m},{(mn^{-1}+2+m^{-1}n)}^{-1},$\n$m=0,003; n=0,007$",
+    "options": [
+      {
+        "text": "0,01",
+        "is_correct": false
+      },
+      {
+        "text": "0,3",
+        "is_correct": false
+      },
+      {
+        "text": "3",
+        "is_correct": false
+      },
+      {
+        "text": "30",
+        "is_correct": true
+      },
+      {
+        "text": "0,001",
+        "is_correct": false
+      }
+    ],
+    "explanation": "[MANAS_ONLY]",
+    "image_url": "",
+    "difficulty": null,
+    "tags": [],
+    "created_at": "2026-04-22T15:34:14.269881+00:00"
+  },
+  {
+    "id": "70a35bcb-2826-4090-8869-48a8ab61cbf2",
+    "subject_id": "13481e5a-36dd-4b26-81c2-4b2b37fb91bb",
+    "template_id": null,
+    "lesson_id": null,
+    "question_text": "Жактары 13 см, 14 см, 15 см болгон үч бурчтукка сырттан сызылган айлананын радиусун тапкыла. / Найдите радиус окружности, описанной около треугольника со сторонами 13 см, 14 см и 15 см.\nа)",
+    "options": [
+      {
+        "text": "8 см",
+        "is_correct": false
+      },
+      {
+        "text": "4 см",
+        "is_correct": false
+      },
+      {
+        "text": "12 см д)",
+        "is_correct": false
+      }
+    ],
+    "explanation": "[MANAS_ONLY]",
+    "image_url": "https://zfqjxofgnhkjyqlujyzf.supabase.co/storage/v1/object/public/question-images/math_q518_1776872442080.png",
+    "difficulty": null,
+    "tags": [],
+    "created_at": "2026-04-22T14:32:52.426379+00:00"
+  },
+  {
+    "id": "cef82aa5-0c12-49e0-9bef-9044b2119298",
+    "subject_id": "13481e5a-36dd-4b26-81c2-4b2b37fb91bb",
+    "template_id": null,
+    "lesson_id": null,
+    "question_text": "Функциянын аныкталуу областын тапкыла. / Найдите область определения функции.\n$$y=\\frac{1}{\\sqrt{112x+64+49x^2}}$$",
+    "options": [
+      {
+        "text": "($-\\infty;0$)",
+        "is_correct": false
+      },
+      {
+        "text": "$\\left$$-\\frac{8}{7};\\frac{8}{7}\\right$$$",
+        "is_correct": false
+      },
+      {
+        "text": "($-\\infty;0]\\cup[0;+\\infty$)",
+        "is_correct": false
+      },
+      {
+        "text": "($-\\infty;-\\frac{8}{7}$\\cup$-\\frac{8}{7};+\\infty$)",
+        "is_correct": true
+      },
+      {
+        "text": "($-\\infty;-\\frac{8}{7}]$",
+        "is_correct": false
+      }
+    ],
+    "explanation": "[MANAS_ONLY]",
+    "image_url": "",
+    "difficulty": null,
+    "tags": [],
+    "created_at": "2026-04-22T14:32:51.225578+00:00"
+  }
+]
