@@ -253,7 +253,15 @@ async function request<T>(
 
   const refreshedToken = response.headers.get('X-Student-Token');
   if (refreshedToken) {
-    useAuthStore.getState().setToken(refreshedToken);
+    // Only accept the refreshed token if the store still holds the token we
+    // sent. If the store has already advanced (another in-flight request's
+    // response landed first), the header from this older response is stale
+    // and would clobber the newer token, causing a false SESSION_TAKEN_OVER
+    // on the next request.
+    const currentToken = useAuthStore.getState().token;
+    if (!token || !currentToken || currentToken === token) {
+      useAuthStore.getState().setToken(refreshedToken);
+    }
   }
 
   const raw = await response.text();

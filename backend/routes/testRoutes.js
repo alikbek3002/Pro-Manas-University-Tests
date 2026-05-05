@@ -758,22 +758,46 @@ async function authenticateStudent(req, res, next) {
     }
 
     const remaining = payload.exp ? payload.exp - Math.floor(Date.now() / 1000) : -1;
-    if (remaining > 0 && remaining <= TOKEN_REFRESH_THRESHOLD_SECONDS && !isStudentTokenExpired(payload)) {
+    // Only the currently active token can trigger a refresh. If we got here via
+    // previous_session_token, another request already rotated the session — skip
+    // refresh so we don't generate a competing new token.
+    const isActiveToken = token === student.active_session_token;
+    if (
+      isActiveToken
+      && remaining > 0
+      && remaining <= TOKEN_REFRESH_THRESHOLD_SECONDS
+      && !isStudentTokenExpired(payload)
+    ) {
       const refreshedToken = signStudentToken({
         sub: student.id,
         accountType: student.account_type,
         manasTrack: student.manas_track || null,
       });
 
-      await supabase
+      // Atomic compare-and-swap: only rotate if active_session_token is still
+      // our token. Two concurrent requests on a near-expiry token would
+      // otherwise each generate a different new token and clobber each other,
+      // leaving the frontend holding a stale token and triggering a false
+      // SESSION_TAKEN_OVER on the next request.
+      const { data: updatedRows, error: updateError } = await supabase
         .from('uni_students')
         .update({
           active_session_token: refreshedToken,
           previous_session_token: token,
         })
-        .eq('id', student.id);
+        .eq('id', student.id)
+        .eq('active_session_token', token)
+        .select('id');
 
-      res.set('X-Student-Token', refreshedToken);
+      if (updateError) {
+        console.error('Student token refresh error:', updateError);
+        // Don't fail the request — the existing token is still valid.
+      } else if (Array.isArray(updatedRows) && updatedRows.length > 0) {
+        res.set('X-Student-Token', refreshedToken);
+      }
+      // If no rows updated, another concurrent request already rotated the
+      // session. The frontend will pick up that other request's header; this
+      // request stays valid because our token is now in previous_session_token.
     }
 
     req.student = student;
