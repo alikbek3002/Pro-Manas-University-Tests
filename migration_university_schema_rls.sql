@@ -234,6 +234,19 @@ CREATE TABLE IF NOT EXISTS public.uni_questions_history (LIKE public.uni_questio
 CREATE TABLE IF NOT EXISTS public.uni_questions_geography (LIKE public.uni_questions INCLUDING DEFAULTS INCLUDING CONSTRAINTS INCLUDING INDEXES);
 CREATE TABLE IF NOT EXISTS public.uni_questions_english (LIKE public.uni_questions INCLUDING DEFAULTS INCLUDING CONSTRAINTS INCLUDING INDEXES);
 
+-- English reading passages: stored once per (test_number, passage_index).
+-- Each passage is referenced by 10 questions in uni_questions_english via tags->>'passage_id'.
+-- Storing the body once instead of duplicating it on every question keeps the table compact.
+CREATE TABLE IF NOT EXISTS public.uni_english_passages (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  test_number SMALLINT NOT NULL,
+  passage_index SMALLINT NOT NULL,
+  title TEXT NOT NULL DEFAULT '',
+  body TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now()),
+  UNIQUE (test_number, passage_index)
+);
+
 CREATE TABLE IF NOT EXISTS public.uni_test_sessions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   student_id UUID NOT NULL REFERENCES public.uni_students(id) ON DELETE CASCADE,

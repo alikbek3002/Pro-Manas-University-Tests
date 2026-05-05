@@ -6,6 +6,7 @@ import { useAuthStore } from '../store/authStore';
 import { studentQueryKeys } from '../lib/studentQueries';
 import logo from '../assets/pro-manas-logo.png';
 import { MarkdownRenderer } from '../components/MarkdownRenderer';
+import { ReadingPassageBlock } from '../components/ReadingPassageBlock';
 import {
   clearActiveTestSnapshot,
   createActiveTestSnapshot,
@@ -796,6 +797,11 @@ export default function TestPage() {
           <div className="mb-4 rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700">
             {apiError}
           </div>
+        )}
+
+        {/* Reading passage (English tests only — backend attaches `passage` per question). */}
+        {currentQuestion?.passage && (
+          <ReadingPassageBlock passage={currentQuestion.passage} />
         )}
 
         {/* Question card */}

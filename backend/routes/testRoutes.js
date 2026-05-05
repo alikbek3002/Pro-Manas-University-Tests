@@ -107,6 +107,55 @@ function shuffle(items) {
   return next;
 }
 
+// English tests have 40 standalone questions + two reading passages of 10 questions each.
+// Standalone questions can be shuffled, but the 10 questions per passage MUST stay
+// together and in their original numeric order so the reading text makes sense.
+function orderEnglishQuestions(pool) {
+  const standalone = [];
+  const byPassage = new Map();
+  for (const q of pool) {
+    const passageId = q.tags?.passage_id || null;
+    if (!passageId) {
+      standalone.push(q);
+    } else {
+      if (!byPassage.has(passageId)) byPassage.set(passageId, []);
+      byPassage.get(passageId).push(q);
+    }
+  }
+  const sortByQuestionNumber = (a, b) => Number(a.tags?.question_number || 0) - Number(b.tags?.question_number || 0);
+
+  const passageGroups = Array.from(byPassage.values())
+    .map((group) => group.sort(sortByQuestionNumber))
+    .sort((a, b) => sortByQuestionNumber(a[0], b[0]));
+
+  return [...shuffle(standalone), ...passageGroups.flat()];
+}
+
+async function loadEnglishPassagesForQuestions(questions) {
+  const ids = Array.from(new Set(
+    questions
+      .map((q) => q.tags?.passage_id)
+      .filter((id) => typeof id === 'string' && id.length > 0),
+  ));
+  if (ids.length === 0) return {};
+
+  const { data, error } = await supabase
+    .from('uni_english_passages')
+    .select('id, title, body, passage_index, test_number')
+    .in('id', ids);
+
+  if (error) {
+    console.error('Failed to load english passages:', error);
+    return {};
+  }
+
+  const map = {};
+  for (const row of data || []) {
+    map[row.id] = row;
+  }
+  return map;
+}
+
 function stripManasMarker(explanation) {
   if (!explanation) return '';
   return String(explanation).replace(/\[MANAS_ONLY\]/g, '').trim();
@@ -1397,9 +1446,22 @@ router.post('/generate', async (req, res) => {
       });
     }
 
-    const questions = normalizedSubject === 'math'
-      ? pool.slice(0, QUESTIONS_PER_TEST)
-      : shuffle(pool).slice(0, QUESTIONS_PER_TEST);
+    let questions;
+    if (normalizedSubject === 'math') {
+      questions = pool.slice(0, QUESTIONS_PER_TEST);
+    } else if (normalizedSubject === 'english') {
+      questions = orderEnglishQuestions(pool).slice(0, QUESTIONS_PER_TEST);
+    } else {
+      questions = shuffle(pool).slice(0, QUESTIONS_PER_TEST);
+    }
+
+    // For English, every passage-bound question carries `tags.passage_id`. We load
+    // the matching passage rows once and inline {title, body} into each question
+    // payload so the client can render the reading text without a second round-trip.
+    const passageById = normalizedSubject === 'english'
+      ? await loadEnglishPassagesForQuestions(questions)
+      : {};
+
     const generatedMeta = {
       schema_version: 1,
       type: 'MAIN',
@@ -1413,6 +1475,7 @@ router.post('/generate', async (req, res) => {
         subject_code: normalizedSubject,
         subject_title: subjectMeta.title,
         order: index,
+        passage_id: question.tags?.passage_id || null,
       })),
     };
 
@@ -1454,13 +1517,17 @@ router.post('/generate', async (req, res) => {
         },
       },
       total_questions: questions.length,
-      questions: questions.map((question) => ({
-        id: String(question.id),
-        text: question.question_text,
-        options: sanitizeOptionsForStudent(question.options),
-        topic: subjectMeta.title,
-        imageUrl: question.image_url || '',
-      })),
+      questions: questions.map((question) => {
+        const passage = question.tags?.passage_id ? passageById[question.tags.passage_id] : null;
+        return {
+          id: String(question.id),
+          text: question.question_text,
+          options: sanitizeOptionsForStudent(question.options),
+          topic: subjectMeta.title,
+          imageUrl: question.image_url || '',
+          passage: passage ? { id: passage.id, title: passage.title, body: passage.body } : null,
+        };
+      }),
     });
   } catch (error) {
     console.error('Test generation error:', error);
@@ -1738,7 +1805,7 @@ router.get('/history/:id', async (req, res) => {
     for (const [tableName, ids] of Object.entries(groupedByTable)) {
       const { data: rows, error: rowsError } = await supabase
         .from(tableName)
-        .select('id, question_text, options, explanation, image_url')
+        .select('id, question_text, options, explanation, image_url, tags')
         .in('id', ids);
 
       if (rowsError) {
@@ -1750,10 +1817,16 @@ router.get('/history/:id', async (req, res) => {
       }
     }
 
+    const passageById = generated.subject === 'english'
+      ? await loadEnglishPassagesForQuestions(Object.values(rowsById))
+      : {};
+
     const questions = items.map((item, index) => {
       const qId = String(item.id);
       const row = rowsById[qId];
       const answer = answers.by_question?.[qId];
+      const passageId = row?.tags?.passage_id || item.passage_id || null;
+      const passage = passageId ? passageById[passageId] : null;
 
       return {
         index: index + 1,
@@ -1769,6 +1842,7 @@ router.get('/history/:id', async (req, res) => {
         correct_index: answer?.correct_index ?? -1,
         is_correct: Boolean(answer?.is_correct),
         answered: Boolean(answer),
+        passage: passage ? { id: passage.id, title: passage.title, body: passage.body } : null,
       };
     });
 

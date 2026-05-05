@@ -6,6 +6,7 @@ import { type TestHistoryDetail, type TestHistoryEntry } from '../lib/api';
 import { testHistoryDetailQueryOptions, testHistoryQueryOptions } from '../lib/studentQueries';
 import StudentLayout from '../components/StudentLayout';
 import { MarkdownRenderer } from '../components/MarkdownRenderer';
+import { ReadingPassageBlock } from '../components/ReadingPassageBlock';
 
 function localizeUi(language: 'ru' | 'kg' | undefined, ruText: string, kgText: string) {
   return language === 'kg' ? kgText : ruText;
@@ -211,12 +212,21 @@ export default function TestHistoryPage() {
                         <p className="text-sm text-red-500 py-3">{detailError}</p>
                       ) : entryDetail ? (
                         <div className="space-y-3">
-                          {entryDetail.questions.map((q) => {
+                          {entryDetail.questions.map((q, idx) => {
                             const isCorrect = q.is_correct;
                             const notAnswered = !q.answered;
+                            // Render the reading passage exactly once — above the first
+                            // question that references it. Standalone questions get nothing.
+                            const prev = idx > 0 ? entryDetail.questions[idx - 1] : null;
+                            const showPassage = q.passage && q.passage.id !== prev?.passage?.id;
                             return (
-                              <div
-                                key={q.id}
+                              <div key={q.id}>
+                                {showPassage && q.passage && (
+                                  <div className="mb-3">
+                                    <ReadingPassageBlock passage={q.passage} compact />
+                                  </div>
+                                )}
+                                <div
                                 className={`rounded-xl border p-4 ${notAnswered
                                   ? 'border-stone-200 bg-stone-50'
                                   : isCorrect
@@ -303,6 +313,7 @@ export default function TestHistoryPage() {
                                     </div>
                                   </div>
                                 ) : null}
+                                </div>
                               </div>
                             );
                           })}

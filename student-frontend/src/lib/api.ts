@@ -186,6 +186,12 @@ export interface SubjectVideoResponse {
   lessons: VideoLesson[];
 }
 
+export interface ReadingPassage {
+  id: string;
+  title: string;
+  body: string;
+}
+
 export interface GeneratedQuestion {
   id: string;
   text: string;
@@ -193,6 +199,7 @@ export interface GeneratedQuestion {
   topic: string;
   imageUrl: string;
   question_type?: 'math' | 'logic';
+  passage?: ReadingPassage | null;
 }
 
 export interface GeneratedTestResponse {
@@ -378,6 +385,7 @@ export interface TestHistoryQuestion {
   correct_index: number;
   is_correct: boolean;
   answered: boolean;
+  passage?: ReadingPassage | null;
 }
 
 export interface TestHistoryDetail extends TestHistoryEntry {
